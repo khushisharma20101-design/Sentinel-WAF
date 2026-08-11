@@ -1,0 +1,15 @@
+# Force Python files to be counted as Python
+*.py linguist-language=Python
+
+# Include the entire src/ folder as Python
+/src/** linguist-language=Python
+
+# Include CSS and JS files in language stats
+*.css linguist-language=CSS
+*.js linguist-language=JavaScript
+
+# Only count Hybrid WAF.html as HTML
+Hybrid\ WAF.html linguist-language=HTML
+
+# Exclude all other HTML files from language stats
+*.html linguist-vendored=true

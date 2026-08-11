@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WAFinity - Advanced Hybrid WAF</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        body { background-color: #08090c; font-family: 'Inter', sans-serif; color: #e2e8f0; }
+        .neon-glow { box-shadow: 0 0 30px rgba(168, 85, 247, 0.2); }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col justify-between p-6">
+
+
+
+
+
+
+    <div class="flex justify-between items-center bg-[#111217] p-4 rounded-2xl border border-purple-900/30 neon-glow max-w-6xl w-full mx-auto mb-8">
+        <div class="flex items-center space-x-3">
+            <div class="bg-purple-600 p-2 rounded-xl text-white font-black text-lg">W</div>
+            <span class="text-xl font-bold text-white tracking-wide">WAFinity</span>
+        </div>
+        <a href="/dashboard" class="bg-purple-900/50 border border-purple-500/50 hover:bg-purple-600 text-white px-4 py-2 rounded-xl text-xs font-bold transition flex items-center space-x-2">
+            <i class="fa-solid fa-chart-pie"></i> <span>View Live Threat Dashboard 📊</span>
+        </a>
+    </div>
+
+    <div class="max-w-xl w-full mx-auto bg-[#111217] border border-gray-800 p-8 rounded-3xl neon-glow text-center my-auto">
+        <div class="w-16 h-16 bg-purple-900/30 border border-purple-500 rounded-2xl flex items-center justify-center mx-auto mb-4 text-purple-400 text-2xl">
+            <i class="fa-solid fa-shield-halved"></i>
+        </div>
+        <h2 class="text-2xl font-black text-white tracking-tight">AI-Powered Request Inspector</h2>
+        <p class="text-xs text-gray-400 mt-1 mb-6">Enter payloads below to test Core Signature & Machine Learning Models</p>
+
+        <form id="inspectForm" class="space-y-4">
+            <div class="text-left">
+                <label class="text-[11px] font-bold text-purple-400 uppercase tracking-wider block mb-2 font-mono">Simulate User Input / Query</label>
+                <input type="text" id="userInput" required placeholder="e.g., admin' OR '1'='1 ya <script>alert(1)</script>" 
+                       class="w-full bg-[#161822] border border-gray-800 rounded-xl px-4 py-3.5 text-sm text-white focus:outline-none focus:border-purple-500 transition font-mono">
+            </div>
+            <button type="submit" class="w-full bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white font-bold py-3 rounded-xl text-sm transition shadow-lg shadow-purple-600/20">
+                <i class="fa-solid fa-wand-magic-sparkles mr-2"></i> Inspect Request Payload
+            </button>
+        </form>
+
+        <div id="resultBox" class="mt-6 p-4 rounded-xl border hidden text-left font-mono text-xs">
+            <p id="resultMessage" class="font-bold"></p>
+        </div>
+    </div>
+
+    <p class="text-center text-[10px] text-gray-600 font-mono mt-8">WAFinity Engine • Hybrid Cyber Security Solution v2.0</p>
+
+    <script>
+        document.getElementById('inspectForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const val = document.getElementById('userInput').value;
+            const resBox = document.getElementById('resultBox');
+            const resMsg = document.getElementById('resultMessage');
+
+            resBox.className = "mt-6 p-4 rounded-xl border text-left font-mono text-xs bg-gray-900/50 border-gray-800 text-gray-400";
+            resMsg.innerText = "Analyzing payload with core modules...";
+            resBox.classList.remove('hidden');
+
+            try {
+                // Sending POST request to backend proxy
+                const response = await fetch('/check_request', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ user_request: val })
+                });
+                const data = await response.json();
+
+                if (data.status === 'valid') {
+                    resBox.className = "mt-6 p-4 rounded-xl border border-emerald-900 bg-emerald-950/20 text-emerald-400 text-left font-mono text-xs";
+                    resMsg.innerHTML = `<strong>[ALLOWED]</strong> ${data.message}`;
+                } else {
+                    resBox.className = "mt-6 p-4 rounded-xl border border-red-900 bg-red-950/20 text-red-400 text-left font-mono text-xs";
+                    resMsg.innerHTML = `<strong>[BLOCKED]</strong> ${data.message || data.ml_verdict}`;
+                }
+            } catch (err) {
+                resMsg.innerText = "Error connecting to protection layer.";
+            }
+        });
+    </script>
+</body>
+</html>
