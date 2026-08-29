@@ -4,11 +4,6 @@
 
 In addition to signature-based detection, it uses **machine learning-based anomaly detection** to identify obfuscated, zero-day, and previously unknown attacks by analyzing patterns and behaviors in incoming requests.
 
-## **How it works**
-
-![WAF Flow](./Hybrid%20WAF_files/WAF%20flow.jpg)
-
-
 ## Features
 
 - 🚫 Block Known Web Attacks
@@ -19,23 +14,22 @@ In addition to signature-based detection, it uses **machine learning-based anoma
 - 🚀 Fast response time
 
 
-##  Output Screenshots
+## Output Screenshots
 
 <p float="left">
-    <img src="./output-screenshots/waf-ss1.png" width="400"/>
-    <img src="./output-screenshots/waf-ss2.png" width="400"/>
+    <img src="./output-screenshots/SentinelWAF1.png" width="400"/>
+    <img src="./output-screenshots/SentinelWAF2.png" width="400"/>
 </p>
 
 <p float="left">
-    <img src="./output-screenshots/waf-ss3.png" width="400"/>
-    <img src="./output-screenshots/waf-ss4.png" width="400"/>
+    <img src="./output-screenshots/SentinelWAF3.png" width="400"/>
+    <img src="./output-screenshots/SentinelWAF4.png" width="400"/>
 </p>
 
 <p float="left">
-    <img src="./output-screenshots/waf-ss5.png" width="400"/>
-    <img src="./output-screenshots/waf-ss6.png" width="400"/>
+    <img src="./output-screenshots/SentinelWAF5.png" width="400"/>
+    <img src="./output-screenshots/SentinelWAF6.png" width="400"/>
 </p>
-
 
 ## Tech Stack
 
