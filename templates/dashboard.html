@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WAFinity - Ultimate Threat Intel</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        body { background-color: #0c0d12; font-family: 'Inter', sans-serif; color: #f1f5f9; }
+        .neon-glow { box-shadow: 0 0 20px rgba(147, 51, 234, 0.15); }
+    </style>
+</head>
+<body class="p-6">
+
+    <div class="flex justify-between items-center mb-8 bg-[#131520] p-4 rounded-2xl border border-purple-900/30 neon-glow">
+        <div class="flex items-center space-x-3">
+            <div class="bg-gradient-to-br from-purple-600 to-indigo-600 p-2.5 rounded-xl text-white font-extrabold text-xl shadow-lg">W</div>
+            <div>
+                <h1 class="text-2xl font-black tracking-wide text-white">WAFinity <span class="text-xs bg-purple-500/20 text-purple-400 px-2 py-0.5 rounded-md font-mono">v2.0 PRO</span></h1>
+                <p class="text-[11px] text-gray-400 font-mono mt-0.5"><i class="fa-solid fa-shield-halved text-purple-500 mr-1 animate-pulse"></i> Hybrid Core Hybrid AI Protection Engaged</p>
+            </div>
+        </div>
+        <div class="flex items-center space-x-3">
+            <a href="/api/export" class="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-xl text-xs font-bold transition flex items-center space-x-2 shadow-md shadow-purple-600/20">
+                <i class="fa-solid fa-file-csv text-sm"></i> <span>Download Threat Report</span>
+            </a>
+        </div>
+    </div>
+
+    <div class="grid grid-cols-1 md:grid-cols-4 gap-5 mb-8">
+        <div class="bg-[#131520] border border-gray-800 p-5 rounded-2xl">
+            <p class="text-xs font-semibold text-gray-400 uppercase tracking-wider">Total Threats Blocked</p>
+            <h3 id="total-blocks" class="text-4xl font-black text-white mt-2">0</h3>
+            <span class="text-[10px] text-emerald-400 font-mono flex items-center mt-2"><span class="w-1.5 h-1.5 bg-emerald-400 rounded-full inline-block mr-1 animate-ping"></span> Network Guard Online</span>
+        </div>
+        <div class="bg-[#131520] border border-gray-800 p-5 rounded-2xl">
+            <p class="text-xs font-semibold text-gray-400 uppercase tracking-wider">SQLi Threats Blocked</p>
+            <h3 id="sqli-blocks" class="text-4xl font-black text-blue-400 mt-2">0</h3>
+            <div class="w-full bg-gray-800 h-1.5 rounded-full mt-3 overflow-hidden"><div id="sqli-bar" class="bg-blue-500 h-1.5 rounded-full transition-all duration-500" style="width: 0%"></div></div>
+        </div>
+        <div class="bg-[#131520] border border-gray-800 p-5 rounded-2xl">
+            <p class="text-xs font-semibold text-gray-400 uppercase tracking-wider">XSS Threats Blocked</p>
+            <h3 id="xss-blocks" class="text-4xl font-black text-orange-400 mt-2">0</h3>
+            <div class="w-full bg-gray-800 h-1.5 rounded-full mt-3 overflow-hidden"><div id="xss-bar" class="bg-orange-500 h-1.5 rounded-full transition-all duration-500" style="width: 0%"></div></div>
+        </div>
+        <div class="bg-[#131520] border border-gray-800 p-5 rounded-2xl">
+            <p class="text-xs font-semibold text-gray-400 uppercase tracking-wider">AI Anomaly Blocks</p>
+            <h3 id="ml-blocks" class="text-4xl font-black text-purple-400 mt-2">0</h3>
+            <div class="w-full bg-gray-800 h-1.5 rounded-full mt-3 overflow-hidden"><div id="ml-bar" class="bg-purple-500 h-1.5 rounded-full transition-all duration-500" style="width: 0%"></div></div>
+        </div>
+    </div>
+
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
+        <div class="lg:col-span-2 bg-[#131520] border border-gray-800 p-5 rounded-2xl">
+            <h4 class="text-sm font-bold text-gray-400 mb-4"><i class="fa-solid fa-chart-line text-purple-500 mr-2"></i> Real-Time Attack Vector Timeline Streams</h4>
+            <div class="h-60"><canvas id="lineTrendChart"></canvas></div>
+        </div>
+        <div class="bg-[#131520] border border-gray-800 p-5 rounded-2xl flex flex-col justify-between">
+            <h4 class="text-sm font-bold text-gray-400 mb-2"><i class="fa-solid fa-chart-pie text-purple-500 mr-2"></i> Attack Share Analytics</h4>
+            <div class="h-48 flex justify-center"><canvas id="doughnutShareChart"></canvas></div>
+        </div>
+    </div>
+
+    <div class="bg-[#131520] border border-gray-800 rounded-2xl p-6">
+        <div class="flex justify-between items-center mb-4">
+            <h3 class="text-md font-bold text-white"><i class="fa-solid fa-terminal text-purple-500 mr-2"></i> Real-Time Payload Core Inspection Logs</h3>
+            <span class="text-xs bg-gray-800 text-gray-400 px-3 py-1 rounded-full font-mono">Auto-Syncing live...</span>
+        </div>
+        <div class="overflow-x-auto">
+            <table class="w-full text-left text-sm text-gray-400">
+                <thead class="bg-[#1a1d2e] text-xs uppercase text-gray-400 border-b border-gray-800">
+                    <tr>
+                        <th class="py-3 px-4">Timestamp</th>
+                        <th class="py-3 px-4">Intercepted Payload</th>
+                        <th class="py-3 px-4">Threat Type</th>
+                        <th class="py-3 px-4">Severity Matrix</th>
+                        <th class="py-3 px-4">Status</th>
+                    </tr>
+                </thead>
+                <tbody id="live-table-rows">
+                    <tr>
+                        <td colspan="5" class="text-center py-8 text-gray-600 text-xs font-mono">Telemetry engine waiting for system triggers...</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <script>
+        let lineChart, pieChart;
+
+        function buildCharts() {
+            const ctx1 = document.getElementById('lineTrendChart').getContext('2d');
+            lineChart = new Chart(ctx1, {
+                type: 'line',
+                data: { labels: ['5m ago', '4m ago', '3m ago', '2m ago', '1m ago', 'Now'], datasets: [{ label: 'Blocked Incidents', data: [0, 0, 0, 0, 0, 0], borderColor: '#a855f7', tension: 0.4, fill: true, backgroundColor: 'rgba(168, 85, 247, 0.03)' }] },
+                options: { responsive: true, maintainAspectRatio: false, scales: { y: { beginAtZero: true, grid: { color: '#222533' } }, x: { grid: { display: false } } } }
+            });
+
+            const ctx2 = document.getElementById('doughnutShareChart').getContext('2d');
+            pieChart = new Chart(ctx2, {
+                type: 'doughnut',
+                data: { labels: ['SQLi', 'XSS', 'AI Anomaly'], datasets: [{ data: [0, 0, 0], backgroundColor: ['#3b82f6', '#f97316', '#a855f7'], borderWidth: 0 }] },
+                options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom', labels: { color: '#9ca3af', font: { size: 11 } } } } }
+            });
+        }
+
+        async function refreshData() {
+            try {
+                const response = await fetch('/api/stats');
+                const result = await response.json();
+                
+                let sqli = 0, xss = 0, ml = 0;
+                const tbody = document.getElementById('live-table-rows');
+                
+                if (result.logs.length === 0) {
+                    tbody.innerHTML = `<tr><td colspan="5" class="text-center py-8 text-gray-500 text-xs font-mono">No vectors triggered yet. Core Infrastructure Secure.</td></tr>`;
+                    return;
+                }
+
+                tbody.innerHTML = '';
+                result.logs.forEach(item => {
+                    if (item.type === "SQL Injection") sqli++;
+                    else if (item.type === "XSS Attack") xss++;
+                    else ml++;
+
+                    let badge = item.type === "SQL Injection" ? "text-blue-400 bg-blue-950/50 border-blue-900" : item.type === "XSS Attack" ? "text-orange-400 bg-orange-950/50 border-orange-900" : "text-purple-400 bg-purple-950/50 border-purple-900";
+                    let severity = item.type === "SQL Injection" ? "<span class='text-red-500 font-bold'>CRITICAL (9.8)</span>" : "<span class='text-orange-400 font-bold'>HIGH (7.5)</span>";
+
+                    tbody.innerHTML += `
+                        <tr class="border-b border-gray-900 hover:bg-gray-900/30 transition">
+                            <td class="py-3.5 px-4 text-xs font-mono text-gray-500">${item.time}</td>
+                            <td class="py-3.5 px-4 font-mono text-white text-xs max-w-xs truncate" title="${item.payload}">${item.payload}</td>
+                            <td class="py-3.5 px-4"><span class="px-2 py-0.5 rounded border text-[10px] font-bold ${badge}">${item.type}</span></td>
+                            <td class="py-3.5 px-4 text-xs">${severity}</td>
+                            <td class="py-3.5 px-4 text-xs text-red-500 font-bold"><i class="fa-solid fa-ban mr-1"></i> ${item.status}</td>
+                        </tr>
+                    `;
+                });
+
+                // Set Counter Cards
+                const total = result.logs.length;
+                document.getElementById('total-blocks').innerText = total;
+                document.getElementById('sqli-blocks').innerText = sqli;
+                document.getElementById('xss-blocks').innerText = xss;
+                document.getElementById('ml-blocks').innerText = ml;
+
+                // Update Progress bars dynamically
+                document.getElementById('sqli-bar').style.width = total > 0 ? `${(sqli / total) * 100}%` : '0%';
+                document.getElementById('xss-bar').style.width = total > 0 ? `${(xss / total) * 100}%` : '0%';
+                document.getElementById('ml-bar').style.width = total > 0 ? `${(ml / total) * 100}%` : '0%';
+
+                // Sync UI Charts Live
+                pieChart.data.datasets[0].data = [sqli, xss, ml];
+                pieChart.update();
+
+                lineChart.data.datasets[0].data = [sqli, xss, ml, sqli + xss, total, total];
+                lineChart.update();
+
+            } catch (e) {
+                console.error("Dashboard error sync:", e);
+            }
+        }
+
+        buildCharts();
+        refreshData();
+        setInterval(refreshData, 3000); // 3 seconds me background state auto-update!
+    </script>
+</body>
+</html>
