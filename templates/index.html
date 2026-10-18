@@ -1109,6 +1109,7 @@ const SEVERITY_LEVELS = ['CRITICAL','HIGH','MEDIUM','LOW'];
    Both the manual "Intercept" box and the "Attack Stress Test"
    now send the payload to the real Flask engine at /api/inspect
    (the shared hybrid Signature + ML engine) instead of guessing
+   (app.py's WAF_RULES + inspect_payload()) instead of guessing
    the verdict with keyword checks in the browser. That endpoint
    already returns status / severity / category / rule_id /
    source_ip / geo in the exact shape this page's cards expect.
@@ -1118,6 +1119,13 @@ const SEVERITY_LEVELS = ['CRITICAL','HIGH','MEDIUM','LOW'];
    suspicious/obfuscated requests are passed to the ML second stage.
    The stress-test pool below intentionally uses payloads covered by
    the real backend signatures rather than browser-only verdicts.
+   NOTE: /api/inspect can only classify what WAF_RULES actually
+   covers — SQL Injection, XSS, Path Traversal, CMD Injection, and
+   generic "Reconnaissance Probing". It has no bot-detection or
+   rate-limiting logic, so "BOT SCRAPER" / "RATE LIMIT" payloads
+   are intentionally left out of the live-fire pool below — the
+   backend would just return them as clean/uninteresting, which
+   would look like a bug rather than an honest demo.
    Also: source_ip / geo in the response are simulated illustrative
    data (clearly labeled as such in app.py) — not a real GeoIP feed.
    ============================================================ */
